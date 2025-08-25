@@ -1,0 +1,2206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRShelper</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src="https://unpkg.com/dicom-parser@latest/dist/dicomParser.min.js"></script>
+    <script src="https://unpkg.com/earcut@2.2.3/dist/earcut.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Registration check - must be first
+        (function () {
+            const isRegistered = localStorage.getItem('simulator_registered');
+            const token = localStorage.getItem('registration_token');
+            
+            if (!isRegistered || isRegistered !== 'true' || !token || token !== 'd5b62259') {
+                // Redirect to registration page
+                window.location.href = 'gate/register.html';
+                return;
+            }
+        })();
+    </script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: #3c3c3c;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 95vh;
+            /* Allow container to grow */
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c5aa0, #1e3d72);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            border-bottom: 2px solid #555;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            align-items: flex-start;
+            /* Prevents side panels from stretching vertically */
+        }
+
+        .left-panel {
+            background: #333;
+            border-right: 1px solid #555;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+            position: sticky;
+            /* Make panel sticky */
+            top: 10px;
+            /* Adjust position as needed */
+            flex-shrink: 0;
+            flex-grow: 0;
+            flex-basis: 380px;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed #666;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: #ccc;
+            font-size: 14px;
+            margin-top: 8px;
+            background-color: #404040;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            cursor: pointer;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .file-drop-zone:hover {
+            background-color: #4a4a4a;
+            border-color: #888;
+        }
+
+        .file-drop-zone.dragover {
+            background-color: #4a4a4a;
+            border-color: #61dafb;
+            color: #61dafb;
+        }
+
+        .file-drop-zone.loaded {
+            background-color: #2d5a2d;
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+
+        .file-drop-zone.error {
+            background-color: #5a2d2d;
+            border-color: #f44336;
+            color: #f44336;
+        }
+
+        .file-status-indicator {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .file-status-indicator.success {
+            background-color: #2d5a2d;
+            color: #4caf50;
+            border: 1px solid #4caf50;
+        }
+
+        .file-status-indicator.warning {
+            background-color: #5a4a2d;
+            color: #ff9800;
+            border: 1px solid #ff9800;
+        }
+
+        .file-status-indicator.error {
+            background-color: #5a2d2d;
+            color: #f44336;
+            border: 1px solid #f44336;
+        }
+
+        .loaded-files-list {
+            margin-top: 10px;
+            padding: 0;
+            list-style: none;
+        }
+
+        .loaded-file-item {
+            background-color: #404040;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+
+
+        .clear-files-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .clear-files-btn:hover {
+            background: #c0392b;
+        }
+
+        .center-panel {
+            flex: 3;
+            background: #3c3c3c;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        .right-panel {
+            background: #2a2a2a;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+            position: sticky;
+            /* Make panel sticky */
+            top: 10px;
+            /* Adjust position as needed */
+            flex-shrink: 0;
+            flex-grow: 0;
+            flex-basis: 400px;
+        }
+
+        .resize-handle-vertical {
+            flex-basis: 10px;
+            flex-shrink: 0;
+            flex-grow: 0;
+            background-color: #333;
+            cursor: col-resize;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="30"><path d="M4 0 v30 M6 0 v30" fill="none" stroke="%23666" stroke-width="1"/></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .resize-handle-vertical:hover {
+            background-color: #555;
+        }
+
+
+        .section {
+            background: #454545;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #555;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .center-panel>.section {
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+
+        .plots-section {
+            flex-shrink: 0;
+            height: 650px;
+            /* Fixed height to fully display plots */
+        }
+
+        .results-section {
+            flex-shrink: 0;
+            /* No longer flexible */
+            height: 650px;
+            /* Taller fixed height for table */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section h3 {
+            margin: 0 0 15px 0;
+            color: #61dafb;
+            font-size: 16px;
+            text-transform: uppercase;
+            font-weight: 600;
+            border-bottom: 1px solid #666;
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .calculation-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        
+        .btn-clear-calc {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        
+        .btn-clear-calc:hover:not(:disabled) {
+            background: #c0392b;
+        }
+        
+        .btn-clear-calc:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .btn,
+        .btn-calculate,
+        #exportCsvBtn {
+            background: #2c5aa0;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn-calculate {
+            font-size: 16px;
+            padding: 12px 30px;
+            background: #28a745;
+            width: 100%;
+        }
+
+        #exportCsvBtn {
+            font-size: 12px;
+            padding: 5px 15px;
+            width: auto;
+            background-color: #555e67;
+        }
+
+        #exportCsvBtn:hover {
+            background-color: #6c757d;
+        }
+
+
+        .btn:hover:not(:disabled) {
+            background: #3a75c4;
+        }
+
+        .btn-calculate:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .btn:disabled,
+        .btn-calculate:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .btn.secondary {
+            background-color: #555e67;
+        }
+
+        .btn.secondary:hover:not(:disabled) {
+            background-color: #6c757d;
+        }
+
+        #structureList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #666;
+            border-radius: 4px;
+            background: #3a3a3a;
+        }
+
+        .structure-item,
+        .dose-file-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #555;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .structure-item:hover,
+        .dose-file-item:hover {
+            background: #5a5a5a;
+        }
+
+        .structure-item.selected,
+        .dose-file-item.selected-for-viewing {
+            background: #4a6e9c;
+        }
+
+        .dose-file-item.selected-for-viewing {
+            border-left: 4px solid #ffaa00;
+            font-weight: bold;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .input-group input,
+        .structure-rx-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid #777;
+            border-radius: 4px;
+            font-size: 13px;
+            background: #333;
+            color: #f0f0f0;
+        }
+
+        .structure-rx-input {
+            width: 60px;
+            text-align: right;
+            padding: 4px;
+        }
+
+        .status-message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .status-error {
+            background-color: #8d3333;
+            color: white;
+        }
+
+        .progress-bar {
+            height: 5px;
+            background: #61dafb;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .progress-container {
+            height: 5px;
+            background: #555;
+            margin-top: 10px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            padding: 8px 10px;
+            border: 1px solid #555;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #4a4a4a;
+            color: #61dafb;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        tbody tr:nth-child(even):not(.group-header) {
+            background-color: #404040;
+        }
+
+        tbody tr:not(.group-header) {
+            cursor: pointer;
+        }
+
+        tbody tr:not(.group-header):hover {
+            background-color: #5a5a5a;
+        }
+
+        tbody tr.highlighted-row {
+            background-color: #ffaa00 !important;
+            color: #111;
+            font-weight: bold;
+        }
+
+        .group-header td {
+            background-color: #2c5aa0;
+            font-weight: bold;
+            color: white;
+            font-size: 14px;
+            position: sticky;
+            top: 36px;
+            z-index: 1;
+        }
+
+        #resultsTableContainer {
+            overflow: auto;
+            flex: 1;
+            /* Let table fill the results-section */
+        }
+
+        .plot-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            height: calc(100% - 40px);
+            /* Adjust height to account for legend */
+        }
+
+        .plot-container {
+            position: relative;
+            aspect-ratio: 4 / 3;
+            /* Enforce 4:3 aspect ratio */
+            margin: auto;
+            max-width: 100%;
+        }
+
+        #sharedLegend,
+        #viewerLegend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            padding: 5px 0 10px 0;
+        }
+
+        #sharedLegend {
+            height: 30px;
+            /* Fixed height for legend area */
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .legend-color-box {
+            width: 14px;
+            height: 14px;
+            margin-right: 8px;
+            border: 1px solid #888;
+        }
+
+        .legend-item.hidden {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        /* Viewer Styles */
+        #viewerContainer {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .view-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            /* Single vertical column */
+            gap: 10px;
+            flex: 1;
+        }
+
+        .view-port {
+            position: relative;
+            background: black;
+            border: 1px solid #666;
+            border-radius: 4px;
+            overflow: hidden;
+            aspect-ratio: 1 / 1;
+            /* Enforce 1:1 square aspect ratio */
+        }
+
+        .view-port canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+
+        .view-port-label {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 2px 6px;
+            font-size: 12px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        #sliceInfo {
+            text-align: center;
+            font-size: 12px;
+            color: #ccc;
+            padding: 5px;
+            background: #333;
+            border-radius: 4px;
+        }
+        
+        .disclaimer-footer {
+            background-color: #f8f9fa;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.9em;
+            border-top: 1px solid #dee2e6;
+            margin-top: 15px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .disclaimer-footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .disclaimer-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .disclaimer-header {
+            background-color: #dc3545;
+            color: white;
+            text-align: center;
+            padding: 8px 20px;
+            font-weight: bold;
+            font-size: 14px;
+            border-bottom: 1px solid #555;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Clinical disclaimer banner -->
+    <div class="disclaimer-header">
+        **NOT VALIDATED FOR CLINICAL USE**
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>SRShelper</h1>
+            <p>Dosimetric Analysis & 3D Orthogonal Viewer</p>
+            <p style="color: #ffcccc; font-size: 12px; margin-top: 10px; font-weight: normal;">
+                For Educational and Research Purpose. Not Validated For Clinical Use.
+            </p>
+        </div>
+        
+        <div class="notes">
+            <style>
+                details.info-dropdown {
+                    margin-bottom: 1em;
+                    background: #3c3c3c;
+                    border: 1px solid #555;
+                    border-radius: 6px;
+                    padding: 15px;
+                }
+
+                details.info-dropdown summary {
+                    font-size: 1.17em;
+                    font-weight: bold;
+                    cursor: pointer;
+                    color: #61dafb;
+                    margin-bottom: 10px;
+                }
+                
+                details.info-dropdown p {
+                    margin: 8px 0;
+                    line-height: 1.4;
+                }
+                
+                details.info-dropdown ul {
+                    margin: 8px 0;
+                    padding-left: 20px;
+                }
+                
+                details.info-dropdown li {
+                    margin: 4px 0;
+                }
+                
+                details.info-dropdown code {
+                    background: #2a2a2a;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                    font-family: 'Courier New', monospace;
+                    color: #61dafb;
+                }
+            </style>
+            <details class="info-dropdown" open>
+                <summary>Important Information</summary>
+                <p style="color: #ff6b6b; font-weight: bold;">
+                    For Educational and Research Purpose. Not Validated For Clinical Use. Dosimetric calculations are for comparative analysis only.
+                </p>
+                <p>
+                    <strong>Step 1: Load DICOM Files.</strong>
+                    <ul>
+                        <li>
+                            Drag and drop your RT Structure Set (<code>.dcm</code>) and RT Dose (<code>.dcm</code>) files onto
+                            the designated area in the left panel.
+                        </li>
+                        <li>Multiple RT Dose files can be loaded for plan comparison.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Step 2: Select Target Structures.</strong>
+                    <ul>
+                        <li>Choose target volumes (GTV, PTV, CTV) from the structure list.</li>
+                        <li>Use Ctrl/Shift for multi-selection or use the "Select GTV/PTV/CTV" button.</li>
+                        <li>Set individual prescription doses for each structure if needed.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Step 3: Configure Analysis Parameters.</strong>
+                    <ul>
+                        <li>Adjust the bounding box margin (default: 15mm) for calculation region.</li>
+                        <li>The tool automatically adapts grid resolution based on target size.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Step 4: Calculate and Analyze.</strong>
+                    <ul>
+                        <li>Click "Calculate Metrics" to compute SRS quality indices.</li>
+                        <li>Review results in interactive plots and comparison table.</li>
+                        <li>Click on plot points or table rows to view structures in 3D viewer.</li>
+                        <li>Use "Clear Calculation Results" to reset analysis while keeping files loaded.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Metrics Calculated:</strong> Paddick CI, RTOG CI, Gradient Index, Homogeneity Index, Coverage, V12Gy, and more.
+                </p>
+            </details>
+        </div>
+        <div class="main-content">
+            <div class="left-panel">
+                <div class="section">
+                    <h3>1. Load DICOM Files</h3>
+                    <div class="file-drop-zone" id="unifiedDropZone">
+                        <div style="font-weight: bold; margin-bottom: 8px;">📁 Drop DICOM Files Here</div>
+                        <div style="font-size: 12px; color: #999;">RT Structure Set (.dcm) + RT Dose (.dcm)</div>
+                        <div style="font-size: 11px; color: #777; margin-top: 4px;">Both file types required for analysis</div>
+                    </div>
+                    <input type="file" id="unifiedFileInput" accept=".dcm" multiple style="display: none;">
+                    
+                    <div id="fileStatusIndicator" class="file-status-indicator" style="display: none;"></div>
+                    
+                    <ul id="loadedFilesList" class="loaded-files-list" style="display: none;"></ul>
+                    
+                    <button id="clearFilesBtn" class="clear-files-btn" style="display: none;">Clear All Files</button>
+                </div>
+                <div class="section" style="flex: 1;">
+                    <h3>2. Select & Configure Targets</h3>
+                    <div class="input-group">
+                        <label for="rxDose">Default Rx Dose [Gy]:</label>
+                        <input type="number" id="rxDose" value="20.0" step="0.1">
+                    </div>
+                    <div id="selectedStructuresStatus" style="font-size: 12px; margin: 10px 0; text-align: center;">0
+                        structures selected</div>
+                    <div id="structureList"></div>
+                    <div class="btn-group">
+                        <button class="btn" id="selectAllTargetsBtn">Select GTV/PTV/CTV</button>
+                        <button class="btn secondary" id="deselectAllBtn">Deselect All</button>
+                    </div>
+                </div>
+            </div>
+            <div class="resize-handle-vertical" id="resize-handle-left"></div>
+            <div class="center-panel">
+                <div class="section">
+                    <h3>3. Configure & Calculate</h3>
+                    <div class="input-group">
+                        <label for="bboxMargin">Bounding Box Margin [mm]:</label>
+                        <input type="number" id="bboxMargin" value="15" step="1" min="0">
+                    </div>
+                    <div class="calculation-buttons">
+                        <button class="btn-calculate" id="calculateButton" disabled>Calculate Metrics for Selected</button>
+                        <button class="btn-clear-calc" id="clearCalculationBtn" style="display: none;">Clear Calculation Results</button>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="calcProgress"></div>
+                    </div>
+                    <div id="calculationStatus"></div>
+                </div>
+
+                <div class="section plots-section">
+                    <h3>Analysis Plots</h3>
+                    <div id="sharedLegend"></div>
+                    <div class="plot-grid">
+                        <div class="plot-container"><canvas id="ciChart"></canvas></div>
+                        <div class="plot-container"><canvas id="giChart"></canvas></div>
+                        <div class="plot-container"><canvas id="rtogChart"></canvas></div>
+                        <div class="plot-container"><canvas id="v12Chart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="section results-section">
+                    <h3 id="resultsHeader">
+                        <span>Comparison Results</span>
+                        <button id="exportCsvBtn" class="btn secondary">Export CSV</button>
+                    </h3>
+                    <div id="resultsTableContainer">
+                        <table id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th>Plan</th>
+                                    <th>Target</th>
+                                    <th>Target Vol [cc]</th>
+                                    <th>Grid [mm]</th>
+                                    <th>Coverage [%]</th>
+                                    <th>Paddick CI</th>
+                                    <th>RTOG CI</th>
+                                    <th>HI</th>
+                                    <th>GI</th>
+                                    <th>Dmax [Gy]</th>
+                                    <th>PIV [cc]</th>
+                                    <th>V12Gy [cc]</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="12" style="text-align: center; padding: 20px; color: #999;">Select
+                                        structures and click calculate</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="resize-handle-vertical" id="resize-handle-right"></div>
+            <div class="right-panel">
+                <div class="section" style="flex: 1;">
+                    <h3>4. Orthogonal Viewer</h3>
+                    <div id="viewerContainer">
+                        <div id="sliceInfo">Select a structure to view</div>
+                        <div id="viewerLegend"></div>
+                        <div class="view-grid">
+                            <div class="view-port">
+                                <canvas id="axialCanvas"></canvas>
+                                <div class="view-port-label">Axial</div>
+                            </div>
+                            <div class="view-port">
+                                <canvas id="sagittalCanvas"></canvas>
+                                <div class="view-port-label">Sagittal</div>
+                            </div>
+                            <div class="view-port">
+                                <canvas id="coronalCanvas"></canvas>
+                                <div class="view-port-label">Coronal</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom disclaimer -->
+    <div class="disclaimer-footer">
+        Bound by the terms of the <a href="gate/VarianLUSLA.html" target="_blank">VarianLUSLA</a>
+    </div>
+
+    <script>
+        class SrsQualityApp {
+            constructor() {
+                this.rsData = null;
+                this.rdDataArray = [];
+                this.isCalculating = false;
+                this.lastClickedIndex = null;
+                this.viewer = null;
+                this.viewingDoseIndex = 0;
+                this.metricCharts = {};
+                this.allResults = [];
+                this.loadedFiles = {
+                    structure: null,
+                    doses: []
+                };
+            }
+
+            init() {
+                this.viewer = new SliceViewer(
+                    document.getElementById('axialCanvas'),
+                    document.getElementById('sagittalCanvas'),
+                    document.getElementById('coronalCanvas'),
+                    document.getElementById('sliceInfo'),
+                    document.getElementById('viewerLegend')
+                );
+                this.initializeMetricCharts();
+                this.setupEventListeners();
+                this.updateCalculationStatus();
+            }
+
+            setupEventListeners() {
+                // Setup unified file handling
+                const dropZone = document.getElementById('unifiedDropZone');
+                const fileInput = document.getElementById('unifiedFileInput');
+                
+                dropZone.onclick = () => fileInput.click();
+                fileInput.onchange = (e) => this.handleFiles(e.target.files);
+                
+                dropZone.ondragover = (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('dragover');
+                };
+                
+                dropZone.ondragleave = () => {
+                    dropZone.classList.remove('dragover');
+                };
+                
+                dropZone.ondrop = (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('dragover');
+                    this.handleFiles(e.dataTransfer.files);
+                };
+                
+                // Clear files button
+                document.getElementById('clearFilesBtn').addEventListener('click', () => this.clearAllFiles());
+                
+                // Clear calculation results button
+                document.getElementById('clearCalculationBtn').addEventListener('click', () => this.clearCalculationResults());
+                
+                // Other event listeners
+                document.getElementById('calculateButton').addEventListener('click', () => this.runCalculation());
+                document.getElementById('selectAllTargetsBtn').addEventListener('click', () => this.selectAllTargets(true));
+                document.getElementById('deselectAllBtn').addEventListener('click', () => this.selectAllTargets(false));
+                document.getElementById('rxDose').addEventListener('change', () => this.updateStructureListRxDoses());
+                document.querySelector('#resultsTable tbody').addEventListener('click', (e) => this.handleTableClick(e));
+                document.getElementById('exportCsvBtn').addEventListener('click', () => this.exportResultsToCSV());
+
+                this.setupColumnResizing();
+            }
+
+            setupColumnResizing() {
+                const leftHandle = document.getElementById('resize-handle-left');
+                const rightHandle = document.getElementById('resize-handle-right');
+                const leftPanel = document.querySelector('.left-panel');
+                const centerPanel = document.querySelector('.center-panel');
+                const rightPanel = document.querySelector('.right-panel');
+
+                const createResizeHandler = (handle, left, right) => {
+                    let isResizing = false;
+                    handle.addEventListener('mousedown', (e) => {
+                        isResizing = true;
+                        e.preventDefault();
+                        const startX = e.clientX;
+                        const leftStartWidth = left.offsetWidth;
+                        const rightStartWidth = right.offsetWidth;
+
+                        const onMouseMove = (moveEvent) => {
+                            if (!isResizing) return;
+                            const dx = moveEvent.clientX - startX;
+                            const newLeftWidth = leftStartWidth + dx;
+                            const newRightWidth = rightStartWidth - dx;
+
+                            if (newLeftWidth > 200 && newRightWidth > 200) {
+                                left.style.flexBasis = newLeftWidth + 'px';
+                                right.style.flexBasis = newRightWidth + 'px';
+                            }
+                        };
+
+                        const onMouseUp = () => {
+                            isResizing = false;
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                        };
+
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                    });
+                };
+
+                createResizeHandler(leftHandle, leftPanel, centerPanel);
+                createResizeHandler(rightHandle, centerPanel, rightPanel);
+            }
+
+            exportResultsToCSV() {
+                if (this.allResults.length === 0) {
+                    this.showStatus('No results to export.', 'error', 'calc');
+                    return;
+                }
+                const headers = ["Plan", "Target", "Volume (cc)", "Final Grid (mm)", "Coverage (%)", "Paddick CI", "RTOG CI", "HI", "GI", "Dmax (Gy)", "PIV (cc)", "V12Gy (cc)"];
+                const rows = this.allResults.map(r => [
+                    `"${r.planName}"`,
+                    `"${r.structureName}"`,
+                    r.TV.toFixed(3),
+                    r.finalGrid.toFixed(2),
+                    (r.coverage * 100).toFixed(1),
+                    r.paddickCI.toFixed(3),
+                    r.rtogCI.toFixed(3),
+                    r.HI.toFixed(3),
+                    r.GI.toFixed(2),
+                    r.Dmax.toFixed(2),
+                    r.PIV.toFixed(3),
+                    r.V12Gy.toFixed(3)
+                ].join(','));
+
+                const csvContent = "data:text/csv;charset=utf-8," + [headers.join(',')].concat(rows).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "srs_comparison_results.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            showStatus(message, type, location = 'calc') {
+                const element = document.getElementById(location === 'calc' ? 'calculationStatus' : 'fileStatus');
+                if (element) {
+                    element.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+                }
+            }
+
+            updateProgressBar(progress) {
+                document.getElementById('calcProgress').style.width = `${progress}%`;
+            }
+
+            async handleFiles(files) {
+                if (!files || files.length === 0) return;
+                
+                // Clear any existing calculation results when loading new files
+                if (this.allResults.length > 0) {
+                    this.clearCalculationResults();
+                }
+                
+                this.updateLoadingStatus('Loading files...', 'info');
+                
+                const structureFiles = [];
+                const doseFiles = [];
+                const invalidFiles = [];
+                
+                // Classify files by type
+                for (const file of files) {
+                try {
+                    const dataSet = await DicomHandler.parseFile(file);
+                        const sopClassUID = dataSet.string('x00080016');
+                        
+                        if (sopClassUID === '1.2.840.10008.5.1.4.1.1.481.3') {
+                            // RT Structure Set
+                            structureFiles.push({file, dataSet});
+                        } else if (sopClassUID === '1.2.840.10008.5.1.4.1.1.481.2') {
+                            // RT Dose
+                            doseFiles.push({file, dataSet});
+                        } else {
+                            invalidFiles.push({file, reason: `Invalid SOP Class: ${sopClassUID}`});
+                        }
+                    } catch (err) {
+                        invalidFiles.push({file, reason: `Parse error: ${err.message}`});
+                    }
+                }
+                
+                // Process structure files (only keep the last one if multiple)
+                if (structureFiles.length > 0) {
+                    const structFile = structureFiles[structureFiles.length - 1];
+                    try {
+                        const extracted = DicomHandler.extractStructures(structFile.dataSet);
+                        this.rsData = { 
+                            structures: extracted, 
+                            frameOfReferenceUID: structFile.dataSet.string('x00200052') 
+                        };
+                    this.rsData.structures.forEach(s => s.contours.sort((a, b) => a[0].z - b[0].z));
+                        this.loadedFiles.structure = structFile.file;
+                    this.updateStructureList();
+                        
+                        if (structureFiles.length > 1) {
+                            this.updateLoadingStatus(`Multiple structure files detected. Using: ${structFile.file.name}`, 'warning');
+                        }
+                    } catch (err) {
+                        this.updateLoadingStatus(`Error processing structure file: ${err.message}`, 'error');
+                        return;
+                    }
+                }
+                
+                // Process dose files
+                if (doseFiles.length > 0) {
+                this.rdDataArray = [];
+                    this.loadedFiles.doses = [];
+                    
+                    for (const doseFile of doseFiles) {
+                        try {
+                            const doseData = await DicomHandler.extractDoseData(doseFile.dataSet);
+                            this.rdDataArray.push({ fileName: doseFile.file.name, doseData });
+                            this.loadedFiles.doses.push(doseFile.file);
+                    } catch (err) {
+                            invalidFiles.push({file: doseFile.file, reason: `Dose processing error: ${err.message}`});
+                        }
+                    }
+                }
+                
+                // Update UI
+                this.updateLoadedFilesList();
+                this.updateCalculationStatus();
+                
+                // Show final status
+                if (invalidFiles.length > 0) {
+                    const invalidFileNames = invalidFiles.map(f => `${f.file.name}: ${f.reason}`).join('\n');
+                    this.updateLoadingStatus(`Some files failed to load:\n${invalidFileNames}`, 'warning');
+                } else {
+                    const hasStructure = this.loadedFiles.structure !== null;
+                const hasDoses = this.loadedFiles.doses.length > 0;
+                
+                if (hasStructure && hasDoses) {
+                    this.updateLoadingStatus(`Files loaded successfully! Structure: 1, Doses: ${this.loadedFiles.doses.length}`, 'success');
+                } else if (hasStructure && !hasDoses) {
+                    this.updateLoadingStatus('Structure file loaded. Please add RT Dose files.', 'warning');
+                } else if (!hasStructure && hasDoses) {
+                    this.updateLoadingStatus('Dose files loaded. Please add RT Structure Set file.', 'warning');
+                } else {
+                    this.updateLoadingStatus('Files loaded successfully', 'success');
+                }
+                }
+            }
+            
+            clearAllFiles() {
+                this.rsData = null;
+                this.rdDataArray = [];
+                this.loadedFiles = { structure: null, doses: [] };
+                this.allResults = [];
+                this.viewingDoseIndex = 0;
+                
+                // Reset drop zone
+                const dropZone = document.getElementById('unifiedDropZone');
+                dropZone.classList.remove('loaded', 'error');
+                dropZone.innerHTML = `
+                    <div style="font-weight: bold; margin-bottom: 8px;">📁 Drop DICOM Files Here</div>
+                    <div style="font-size: 12px; color: #999;">RT Structure Set (.dcm) + RT Dose (.dcm)</div>
+                    <div style="font-size: 11px; color: #777; margin-top: 4px;">Both file types required for analysis</div>
+                `;
+                
+                // Hide clear calculation button
+                document.getElementById('clearCalculationBtn').style.display = 'none';
+                
+                // Reset UI
+                this.updateStructureList();
+                this.updateLoadedFilesList();
+                this.updateCalculationStatus();
+                this.displayResults([]);
+                this.updateLoadingStatus('All files cleared', 'info');
+                
+                // Clear viewer
+                if (this.viewer) {
+                    this.viewer.clear();
+                }
+                
+                // Reset charts
+                Object.values(this.metricCharts).forEach(chart => {
+                    chart.data.datasets = [];
+                    chart.update();
+                });
+                
+                // Reset shared legend
+                document.getElementById('sharedLegend').innerHTML = '';
+            }
+            
+            clearCalculationResults() {
+                // Clear results data
+                this.allResults = [];
+                
+                // Clear results table
+                this.displayResults([]);
+                
+                // Clear and reset charts
+                Object.values(this.metricCharts).forEach(chart => {
+                    chart.data.datasets = [];
+                    chart.update();
+                });
+                
+                // Clear shared legend
+                document.getElementById('sharedLegend').innerHTML = '';
+                
+                // Clear viewer if showing results
+                if (this.viewer) {
+                    this.viewer.clear();
+                }
+                
+                // Hide clear calculation button
+                document.getElementById('clearCalculationBtn').style.display = 'none';
+                
+                // Reset any highlighted table rows
+                const tableRows = document.querySelectorAll('#resultsTable tbody tr');
+                tableRows.forEach(row => {
+                    row.classList.remove('highlighted-row');
+                });
+                
+                // Show status message
+                this.showStatus('Calculation results cleared. Files remain loaded.', 'info');
+            }
+
+            updateLoadedFilesList() {
+                const listElement = document.getElementById('loadedFilesList');
+                const statusIndicator = document.getElementById('fileStatusIndicator');
+                const clearBtn = document.getElementById('clearFilesBtn');
+                
+                listElement.innerHTML = '';
+                
+                const hasFiles = this.loadedFiles.structure || this.loadedFiles.doses.length > 0;
+                
+                if (hasFiles) {
+                    listElement.style.display = 'block';
+                    clearBtn.style.display = 'block';
+                    
+                    // Add structure file
+                    if (this.loadedFiles.structure) {
+                    const item = document.createElement('li');
+                        item.className = 'loaded-file-item';
+                        item.innerHTML = `<span>${this.loadedFiles.structure.name}</span>`;
+                        listElement.appendChild(item);
+                    }
+                    
+                    // Add dose files
+                    this.loadedFiles.doses.forEach((doseFile, index) => {
+                        const item = document.createElement('li');
+                        item.className = 'loaded-file-item';
+                        item.innerHTML = `<span>${doseFile.name}</span>`;
+                    item.onclick = (e) => {
+                        e.stopPropagation();
+                        this.viewingDoseIndex = index;
+                            this.updateLoadedFilesList();
+                        this.updateCurrentView();
+                    };
+                        item.style.cursor = 'pointer';
+                    listElement.appendChild(item);
+                });
+                } else {
+                    listElement.style.display = 'none';
+                    clearBtn.style.display = 'none';
+                }
+            }
+            
+            updateLoadingStatus(message, type) {
+                const statusIndicator = document.getElementById('fileStatusIndicator');
+                
+                statusIndicator.textContent = message;
+                statusIndicator.className = `file-status-indicator ${type}`;
+                statusIndicator.style.display = 'block';
+                
+                // Auto-hide success/info messages after 3 seconds
+                if (type === 'success' || type === 'info') {
+                    setTimeout(() => {
+                        if (statusIndicator.textContent === message) {
+                            statusIndicator.style.display = 'none';
+                        }
+                    }, 3000);
+                }
+            }
+            
+            updateCalculationStatus() {
+                const calculateBtn = document.getElementById('calculateButton');
+                const dropZone = document.getElementById('unifiedDropZone');
+                const hasStructure = this.loadedFiles.structure !== null;
+                const hasDoses = this.loadedFiles.doses.length > 0;
+                
+                if (hasStructure && hasDoses) {
+                    calculateBtn.disabled = false;
+                    dropZone.classList.add('loaded');
+                    dropZone.classList.remove('error');
+                    
+                    // Update drop zone to show loaded state
+                    dropZone.innerHTML = `
+                        <div style="font-weight: bold; margin-bottom: 8px; color: #4caf50;">✅ Files Loaded Successfully</div>
+                        <div style="font-size: 12px;">Structure: ${this.loadedFiles.structure.name}</div>
+                        <div style="font-size: 12px;">Doses: ${this.loadedFiles.doses.length} file(s)</div>
+                        <div style="font-size: 11px; color: #888; margin-top: 4px;">Drop more files to add or replace</div>
+                    `;
+                } else {
+                    calculateBtn.disabled = true;
+                    dropZone.classList.remove('loaded');
+                    
+                    if (!hasStructure && !hasDoses) {
+                        dropZone.classList.remove('error');
+                        dropZone.innerHTML = `
+                            <div style="font-weight: bold; margin-bottom: 8px;">📁 Drop DICOM Files Here</div>
+                            <div style="font-size: 12px; color: #999;">RT Structure Set (.dcm) + RT Dose (.dcm)</div>
+                            <div style="font-size: 11px; color: #777; margin-top: 4px;">Both file types required for analysis</div>
+                        `;
+                        this.updateLoadingStatus('Please load RT Structure Set and RT Dose files', 'warning');
+                    } else {
+                        dropZone.classList.add('error');
+                        if (!hasStructure) {
+                            dropZone.innerHTML = `
+                                <div style="font-weight: bold; margin-bottom: 8px; color: #f44336;">⚠️ RT Structure Set Required</div>
+                                <div style="font-size: 12px;">Doses: ${this.loadedFiles.doses.length} file(s) loaded</div>
+                                <div style="font-size: 11px; color: #888; margin-top: 4px;">Drop RT Structure Set file (.dcm)</div>
+                            `;
+                            this.updateLoadingStatus('RT Structure Set file required', 'warning');
+                        } else if (!hasDoses) {
+                            dropZone.innerHTML = `
+                                <div style="font-weight: bold; margin-bottom: 8px; color: #f44336;">⚠️ RT Dose Files Required</div>
+                                <div style="font-size: 12px;">Structure: ${this.loadedFiles.structure.name}</div>
+                                <div style="font-size: 11px; color: #888; margin-top: 4px;">Drop RT Dose file(s) (.dcm)</div>
+                            `;
+                            this.updateLoadingStatus('RT Dose file(s) required', 'warning');
+                        }
+                    }
+                }
+            }
+
+            updateSelectionStatus() {
+                if (!this.rsData) return;
+                const selectedCount = this.rsData.structures.filter(s => s.selected).length;
+                document.getElementById('selectedStructuresStatus').textContent = `${selectedCount} structure(s) selected`;
+            }
+
+            updateStructureListRxDoses() {
+                const globalRx = parseFloat(document.getElementById('rxDose').value);
+                if (isNaN(globalRx) || !this.rsData) return;
+
+                const allInputs = document.querySelectorAll('.structure-rx-input');
+                this.rsData.structures.forEach((structure, index) => {
+                    if (!structure.rxManuallySet) {
+                        structure.rxDose = globalRx;
+                        if (allInputs[index]) {
+                            allInputs[index].value = globalRx.toFixed(1);
+                        }
+                    }
+                });
+            }
+
+            updateStructureList() {
+                const listElement = document.getElementById('structureList');
+                listElement.innerHTML = '';
+                this.lastClickedIndex = null;
+                const structures = this.rsData?.structures || [];
+                if (structures.length === 0) {
+                    listElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No structures found</div>';
+                    return;
+                }
+
+                const priorityKeywords = ['PTV', 'GTV', 'CTV'];
+                const getPriority = (structureName) => {
+                    const upperName = structureName.toUpperCase();
+                    return priorityKeywords.some(keyword => upperName.includes(keyword)) ? 1 : 2;
+                };
+                structures.sort((a, b) => {
+                    const priorityA = getPriority(a.name);
+                    const priorityB = getPriority(b.name);
+                    if (priorityA !== priorityB) return priorityA - priorityB;
+                    return a.name.localeCompare(b.name);
+                });
+
+                const defaultRx = document.getElementById('rxDose').value;
+                structures.forEach((structure, index) => {
+                    structure.rxDose = parseFloat(defaultRx);
+                    structure.rxManuallySet = false;
+                    const item = document.createElement('div');
+                    item.className = 'structure-item';
+                    item.innerHTML = `
+                        <div style="flex-grow: 1;">${structure.name}</div>
+                        <input type="number" class="structure-rx-input" value="${structure.rxDose.toFixed(1)}"
+                               step="0.1" data-index="${index}" title="Prescription Dose for ${structure.name}">
+                    `;
+                    const rxInput = item.querySelector('input');
+                    rxInput.onclick = e => e.stopPropagation();
+                    rxInput.onchange = (e) => {
+                        structure.rxDose = parseFloat(e.target.value);
+                        structure.rxManuallySet = true;
+                    };
+                    item.onclick = (event) => this.handleStructureClick(event, item, structure, index);
+                    listElement.appendChild(item);
+                });
+                this.updateSelectionStatus();
+            }
+
+            handleStructureClick(event, item, structure, index) {
+                const listElement = document.getElementById('structureList');
+                const allItems = Array.from(listElement.children);
+                if (!(event.ctrlKey || event.metaKey || event.shiftKey)) {
+                    const isAlreadySelected = item.classList.contains('selected');
+                    allItems.forEach(it => it.classList.remove('selected'));
+                    this.rsData.structures.forEach(s => s.selected = false);
+                    if (!isAlreadySelected) {
+                        item.classList.add('selected');
+                        structure.selected = true;
+                    }
+                } else if (event.shiftKey && this.lastClickedIndex !== null) {
+                    const start = Math.min(index, this.lastClickedIndex);
+                    const end = Math.max(index, this.lastClickedIndex);
+                    for (let i = start; i <= end; i++) {
+                        this.rsData.structures[i].selected = true;
+                        allItems[i].classList.add('selected');
+                    }
+                } else {
+                    structure.selected = !structure.selected;
+                    item.classList.toggle('selected');
+                }
+                this.lastClickedIndex = index;
+                this.updateSelectionStatus();
+                this.updateCurrentView();
+            }
+
+            syncUI(resultId) {
+                if (!resultId) return;
+
+                this.highlightTableRow(resultId);
+                this.highlightPlotPoint(resultId);
+
+                const result = this.allResults.find(r => r.id === resultId);
+                if (result) {
+                    const structure = this.rsData.structures.find(s => s.name === result.structureName);
+                    const doseIndex = this.rdDataArray.findIndex(d => d.fileName === result.planName);
+
+                    if (structure && doseIndex !== -1) {
+                        this.viewingDoseIndex = doseIndex;
+                        this.updateLoadedFilesList();
+                        this.viewer.updateView(structure, this.rdDataArray[doseIndex].doseData, structure.rxDose);
+                    }
+                }
+            }
+
+            handleTableClick(event) {
+                const row = event.target.closest('tr');
+                if (!row || !row.dataset.resultId) return;
+                this.syncUI(row.dataset.resultId);
+            }
+
+            handlePlotClick(evt, elements, chart) {
+                if (elements.length === 0 || !chart) return;
+                const element = elements[0];
+                const resultId = chart.data.datasets[element.datasetIndex].data[element.index].resultId;
+                this.syncUI(resultId);
+            }
+
+            highlightTableRow(resultId) {
+                const tableRows = document.querySelectorAll('#resultsTable tbody tr');
+                tableRows.forEach(row => {
+                    if (row.dataset.resultId === resultId) {
+                        row.classList.add('highlighted-row');
+                    } else {
+                        row.classList.remove('highlighted-row');
+                    }
+                });
+            }
+
+            highlightPlotPoint(resultId) {
+                Object.values(this.metricCharts).forEach(chart => {
+                    chart.data.datasets.forEach(dataset => {
+                        const radii = [];
+                        const borderColors = [];
+                        dataset.data.forEach(point => {
+                            if (point.resultId === resultId) {
+                                radii.push(8);
+                                borderColors.push('white');
+                            } else {
+                                radii.push(4);
+                                borderColors.push('transparent');
+                            }
+                        });
+                        dataset.radius = radii;
+                        dataset.borderColor = borderColors;
+                        dataset.borderWidth = 2;
+                    });
+                    chart.update('none');
+                });
+            }
+
+            updateCurrentView() {
+                const structureToView = this.rsData?.structures.find(s => s.selected);
+                const doseToView = this.rdDataArray[this.viewingDoseIndex];
+                if (structureToView && doseToView) {
+                    const margin = parseFloat(document.getElementById('bboxMargin').value);
+                    this.viewer.updateView(structureToView, doseToView.doseData, structureToView.rxDose, margin);
+                } else if (structureToView) {
+                    const margin = parseFloat(document.getElementById('bboxMargin').value);
+                    this.viewer.updateView(structureToView, null, null, margin);
+                }
+                else {
+                    this.viewer.clear();
+                }
+            }
+
+
+            selectAllTargets(doSelect) {
+                if (!this.rsData) return;
+                const allItems = document.querySelectorAll('.structure-item');
+                this.rsData.structures.forEach((structure, index) => {
+                    const name = structure.name.toUpperCase();
+                    if (doSelect && (name.includes('GTV') || name.includes('PTV') || name.includes('CTV'))) {
+                        structure.selected = true;
+                        allItems[index].classList.add('selected');
+                    } else if (!doSelect) {
+                        structure.selected = false;
+                        allItems[index].classList.remove('selected');
+                    }
+                });
+                this.updateSelectionStatus();
+            }
+
+            async runCalculation() {
+                if (this.isCalculating) return;
+                
+                // Check if files are loaded
+                if (!this.loadedFiles.structure) {
+                    this.showStatus('Please load an RT Structure Set file first.', 'error');
+                    return;
+                }
+                if (this.loadedFiles.doses.length === 0) {
+                    this.showStatus('Please load at least one RT Dose file.', 'error');
+                    return;
+                }
+                
+                const selectedStructures = this.rsData?.structures?.filter(s => s.selected) || [];
+                if (selectedStructures.length === 0) { 
+                    this.showStatus('Please select one or more structures to calculate.', 'error'); 
+                    return; 
+                }
+                if (this.rdDataArray.length === 0) { 
+                    this.showStatus('Please load at least one RT Dose file.', 'error'); 
+                    return; 
+                }
+
+                this.isCalculating = true;
+                document.getElementById('calculateButton').disabled = true;
+                this.displayResults([]);
+                this.allResults = [];
+
+                const margin = parseFloat(document.getElementById('bboxMargin').value);
+                const clippingPlanes = CalculationEngine.precomputeClippingPlanes(selectedStructures, margin);
+
+                try {
+                    let taskCounter = 0;
+                    const totalTasks = selectedStructures.length * this.rdDataArray.length;
+
+                    for (const s of selectedStructures) {
+                        for (const doseFile of this.rdDataArray) {
+                            taskCounter++;
+                            const structurePlanes = clippingPlanes.get(s.name) || [];
+
+                            const metrics = await CalculationEngine.calculateAllMetrics(s, doseFile.doseData, s.rxDose, margin, structurePlanes, (status, taskPercent) => {
+                                const overallPercent = ((taskCounter - 1) / totalTasks + taskPercent / totalTasks) * 100;
+                                this.updateProgressBar(overallPercent);
+                                this.showStatus(status, 'info');
+                            });
+
+                            if (metrics.Dmax < 1.0 && metrics.TV > 0.01) {
+                                throw new Error(`Calculation failed for ${s.name}. Max dose is near zero, indicating a persistent coordinate misalignment issue.`);
+                            }
+
+                            this.allResults.push({
+                                id: `result-${taskCounter}`,
+                                planName: doseFile.fileName,
+                                structureName: s.name,
+                                ...metrics
+                            });
+                        }
+                    }
+                    this.displayResults(this.allResults);
+                    this.updateMetricCharts(this.allResults);
+                    this.updateSharedLegend(this.allResults);
+                    
+                    // Show clear calculation button
+                    document.getElementById('clearCalculationBtn').style.display = 'block';
+                    
+                    this.showStatus('Calculation complete.', 'success');
+
+                } catch (err) {
+                    this.showStatus(`${err.message}`, 'error');
+                    // Hide clear calculation button on error
+                    document.getElementById('clearCalculationBtn').style.display = 'none';
+                } finally {
+                    this.isCalculating = false;
+                    document.getElementById('calculateButton').disabled = false;
+                    this.updateProgressBar(0);
+                }
+            }
+
+            displayResults(results) {
+                const tableBody = document.querySelector('#resultsTable tbody');
+                tableBody.innerHTML = '';
+                if (results.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 20px; color: #999;">No results to display.</td></tr>`;
+                    return;
+                }
+
+                const groupedResults = results.reduce((acc, r) => {
+                    (acc[r.structureName] = acc[r.structureName] || []).push(r);
+                    return acc;
+                }, {});
+
+                for (const structureName in groupedResults) {
+                    const groupHeader = tableBody.insertRow();
+                    groupHeader.className = 'group-header';
+                    const cell = groupHeader.insertCell();
+                    cell.colSpan = 12;
+                    const structureVolume = groupedResults[structureName][0].TV;
+                    cell.innerHTML = `<strong>Target: ${structureName}</strong> (Volume: ${structureVolume.toFixed(3)} cc)`;
+
+                    groupedResults[structureName].forEach(r => {
+                        const row = tableBody.insertRow();
+                        row.dataset.resultId = r.id;
+                        row.dataset.planName = r.planName;
+                        row.dataset.structureName = r.structureName;
+                        row.innerHTML = `
+                            <td>${r.planName}</td>
+                             <td>${r.structureName}</td>
+                            <td>${r.TV.toFixed(3)}</td>
+                            <td>${r.finalGrid.toFixed(2)}</td>
+                            <td>${(r.coverage * 100).toFixed(1)}</td>
+                            <td>${r.paddickCI.toFixed(3)}</td>
+                            <td>${r.rtogCI.toFixed(3)}</td>
+                            <td>${r.HI.toFixed(3)}</td>
+                            <td>${r.GI.toFixed(2)}</td>
+                            <td>${r.Dmax.toFixed(2)}</td>
+                            <td>${r.PIV.toFixed(3)}</td>
+                            <td>${r.V12Gy.toFixed(3)}</td>
+                        `;
+                    });
+                }
+            }
+
+            updateSharedLegend(results) {
+                const legendContainer = document.getElementById('sharedLegend');
+                legendContainer.innerHTML = '';
+                // Group by plan name for legend
+                const planGroups = results.reduce((acc, r) => { (acc[r.planName] = acc[r.planName] || []).push(r); return acc; }, {});
+                const colors = this.getChartColors();
+
+                Object.keys(planGroups).forEach((planName, index) => {
+                    const color = colors[index % colors.length];
+                    const legendItem = document.createElement('div');
+                    legendItem.className = 'legend-item';
+                    legendItem.innerHTML = `<div class="legend-color-box" style="background-color: ${color};"></div><span>${planName}</span>`;
+
+                    legendItem.onclick = () => {
+                        legendItem.classList.toggle('hidden');
+                        const isHidden = legendItem.classList.contains('hidden');
+                        Object.values(this.metricCharts).forEach(chart => {
+                            const dataset = chart.data.datasets.find(d => d.label === planName);
+                            if (dataset) {
+                                dataset.hidden = isHidden;
+                            }
+                            chart.update();
+                        });
+                    };
+                    legendContainer.appendChild(legendItem);
+                });
+            }
+
+            getChartColors() {
+                return ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0', '#ff9f40', '#9966ff'];
+            }
+
+            initializeMetricCharts() {
+                const chartConfigs = {
+                    ciChart: { yLabel: 'Paddick CI' },
+                    giChart: { yLabel: 'Gradient Index (GI)' },
+                    rtogChart: { yLabel: 'RTOG CI' },
+                    v12Chart: { yLabel: 'V12Gy [cc]' }
+                };
+
+                const chartOptions = (yLabel) => ({
+                    responsive: true, maintainAspectRatio: false,
+                    onClick: (evt, elements, chart) => this.handlePlotClick(evt, elements, chart),
+                    scales: {
+                        x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Effective Diameter [mm]', color: '#ccc' }, ticks: { color: '#ccc' }, grid: { color: '#555' } },
+                        y: { title: { display: true, text: yLabel, color: '#ccc' }, ticks: { color: '#ccc' }, grid: { color: '#555' } }
+                    },
+                    plugins: {
+                        legend: { display: false }, // Disable individual legends
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const planName = context.dataset.label || '';
+                                    const structureName = context.raw.structureName;
+                                    return `${planName} [${structureName}]: (${context.parsed.x.toFixed(1)} mm, ${context.parsed.y.toFixed(2)})`;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                for (const [id, config] of Object.entries(chartConfigs)) {
+                    if (this.metricCharts[id]) this.metricCharts[id].destroy();
+                    const ctx = document.getElementById(id).getContext('2d');
+                    this.metricCharts[id] = new Chart(ctx, { type: 'scatter', data: { datasets: [] }, options: chartOptions(config.yLabel) });
+                }
+            }
+
+            updateMetricCharts(results) {
+                // Group by plan name for multi-plan comparison
+                const planGroups = results.reduce((acc, r) => {
+                    (acc[r.planName] = acc[r.planName] || []).push(r);
+                    return acc;
+                }, {});
+
+                const colors = this.getChartColors();
+
+                const createDataset = (metricKey) => {
+                    return Object.entries(planGroups).map(([planName, planResults], index) => ({
+                        label: planName,
+                        data: planResults.map(r => ({
+                            x: r.effectiveDiameter,
+                            y: r[metricKey],
+                            structureName: r.structureName,
+                            resultId: r.id
+                        })),
+                        backgroundColor: colors[index % colors.length],
+                        radius: 4,
+                        borderColor: 'transparent',
+                        borderWidth: 2,
+                    }));
+                };
+
+                this.metricCharts.ciChart.data.datasets = createDataset('paddickCI');
+                this.metricCharts.giChart.data.datasets = createDataset('GI');
+                this.metricCharts.rtogChart.data.datasets = createDataset('rtogCI');
+                this.metricCharts.v12Chart.data.datasets = createDataset('V12Gy');
+
+                Object.values(this.metricCharts).forEach(chart => chart.update());
+            }
+        }
+
+        class DicomHandler {
+            static async parseFile(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = e => { try { resolve(dicomParser.parseDicom(new Uint8Array(e.target.result))); } catch (err) { reject(new Error(`DICOM parsing failed: ${err.message}`)); } }; reader.onerror = () => reject(new Error("File reading failed")); reader.readAsArrayBuffer(file); }); }
+            static extractStructures(dataSet) { const sROIs = new Map(); (dataSet.elements.x30060020?.items || []).forEach(i => { const rN = i.dataSet.string('x30060022'); if (rN) sROIs.set(rN, { id: rN, name: i.dataSet.string('x30060026') || 'Unnamed', contours: [], selected: false }); }); (dataSet.elements.x30060039?.items || []).forEach(i => { const s = sROIs.get(i.dataSet.string('x30060084')); if (s && i.dataSet.elements.x30060040) { (i.dataSet.elements.x30060040.items || []).forEach(sI => { const cDS = sI.dataSet.string('x30060050'); if (cDS) { const cPA = cDS.split('\\').map(parseFloat); const p = []; for (let j = 0; j < cPA.length; j += 3)if (j + 2 < cPA.length) p.push({ x: cPA[j], y: cPA[j + 1], z: cPA[j + 2] }); if (p.length > 0) s.contours.push(p); } }); } }); return Array.from(sROIs.values()).filter(s => s.contours.length > 0); }
+
+            static extractDoseData(dataSet) {
+                const tS = dataSet.string('x00020010');
+                if (!['1.2.840.10008.1.2', '1.2.840.10008.1.2.1'].includes(tS)) throw new Error(`Unsupported/Compressed TS: ${tS}. Please use uncompressed DICOM.`);
+                const fUID = dataSet.string('x00200052');
+                const dGS = parseFloat(dataSet.string('x3004000e') || '1.0');
+                const pDE = dataSet.elements.x7fe00010;
+                if (!pDE) throw new Error("Pixel Data (x7fe00010) not found in RTDOSE file.");
+                const bA = dataSet.uint16('x00280100');
+                let pixelData;
+                if (bA === 16) pixelData = new Uint16Array(dataSet.byteArray.buffer, pDE.dataOffset, pDE.length / 2);
+                else if (bA === 32) pixelData = new Uint32Array(dataSet.byteArray.buffer, pDE.dataOffset, pDE.length / 4);
+                else throw new Error(`Unsupported Bits Allocated (${bA}).`);
+                const rows = dataSet.uint16('x00280010'), cols = dataSet.uint16('x00280011');
+                const imagePosition = dataSet.string('x00200032').split('\\').map(parseFloat);
+                const pixelSpacing = dataSet.string('x00280030').split('\\').map(parseFloat);
+                const gFOV_raw = (dataSet.string('x3004000c') || '').split('\\').map(parseFloat);
+                if (gFOV_raw.length === 0 || isNaN(gFOV_raw[0])) throw new Error("Grid Frame Offset Vector (x3004000c) not found or invalid.");
+                const frames = gFOV_raw.length;
+                const originalDoseFrames = Array.from({ length: frames }, (_, i) => {
+                    const frameOffset = i * rows * cols;
+                    const frameData = new Float32Array(rows * cols);
+                    for (let j = 0; j < frameData.length; j++) frameData[j] = pixelData[frameOffset + j] * dGS;
+                    return frameData;
+                });
+                const zMap = gFOV_raw.map((z, index) => ({ z, index }));
+                zMap.sort((a, b) => a.z - b.z);
+                const gridFrameOffsetVector = zMap.map(item => item.z);
+                const doseFrames = zMap.map(item => originalDoseFrames[item.index]);
+                const zSpacing = frames > 1 ? Math.abs(gridFrameOffsetVector[1] - gridFrameOffsetVector[0]) : 1.0;
+                return { rows, cols, frames, frameOfReferenceUID: fUID, imagePosition: { x: imagePosition[0], y: imagePosition[1], z: imagePosition[2] }, pixelSpacing: { x: pixelSpacing[1], y: pixelSpacing[0] }, zSpacing, gridFrameOffsetVector, doseFrames, voxelVolume: (pixelSpacing[0] * pixelSpacing[1] * zSpacing) / 1000 };
+            }
+        }
+
+        class CalculationEngine {
+            static isPointInPolygon(p, poly) { let iS = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y; if (((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi)) iS = !iS; } return iS; }
+            static getBoundingBoxAndCenter(s) { let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity; for (const c of s.contours) for (const p of c) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); } return { minX, maxX, minY, maxY, minZ, maxZ, center: { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2, z: minZ + (maxZ - minZ) / 2 } }; }
+
+            static getDoseAtPoint(x, y, z, doseData) {
+                if (!doseData) return 0;
+                const { imagePosition, pixelSpacing, gridFrameOffsetVector, rows, cols, frames, doseFrames } = doseData;
+                if (frames === 0) return 0;
+                const z_relative = z - imagePosition.z;
+                let k = 0;
+                while (k < frames - 1 && gridFrameOffsetVector[k + 1] <= z_relative) { k++; }
+                const k0 = k;
+                const k1 = Math.min(k0 + 1, frames - 1);
+                const z0_offset = gridFrameOffsetVector[k0];
+                const z1_offset = gridFrameOffsetVector[k1];
+                if (z_relative < z0_offset || z_relative > z1_offset) return 0;
+                const i = (x - imagePosition.x) / pixelSpacing.x;
+                const j = (y - imagePosition.y) / pixelSpacing.y;
+                if (i < 0 || i >= cols - 1 || j < 0 || j >= rows - 1) return 0;
+                const i0 = Math.floor(i), i1 = i0 + 1;
+                const j0 = Math.floor(j), j1 = j0 + 1;
+                const id = i - i0, jd = j - j0;
+                const kd_d = z1_offset - z0_offset;
+                const kd = (kd_d < 1e-6) ? 0 : (z_relative - z0_offset) / kd_d;
+                const d0 = doseFrames[k0];
+                const d1 = (k0 === k1) ? d0 : doseFrames[k1];
+                const v00 = d0[j0 * cols + i0], v10 = d0[j0 * cols + i1];
+                const v01 = d0[j1 * cols + i0], v11 = d0[j1 * cols + i1];
+                const v20 = d1[j0 * cols + i0], v30 = d1[j0 * cols + i1];
+                const v21 = d1[j1 * cols + i0], v31 = d1[j1 * cols + i1];
+                const c00 = v00 * (1 - id) + v10 * id, c10 = v01 * (1 - id) + v11 * id;
+                const c0 = c00 * (1 - jd) + c10 * jd;
+                const c01 = v20 * (1 - id) + v30 * id, c11 = v21 * (1 - id) + v31 * id;
+                const c1 = c01 * (1 - jd) + c11 * jd;
+                return c0 * (1 - kd) + c1 * kd;
+            }
+
+            static precomputeClippingPlanes(structures, margin) {
+                const clippingPlanes = new Map();
+                const structureInfo = structures.map(s => ({
+                    name: s.name,
+                    bboxWithMargin: (() => {
+                        const bbox = this.getBoundingBoxAndCenter(s);
+                        return {
+                            minX: bbox.minX - margin, maxX: bbox.maxX + margin,
+                            minY: bbox.minY - margin, maxY: bbox.maxY + margin,
+                            minZ: bbox.minZ - margin, maxZ: bbox.maxZ + margin,
+                            center: bbox.center
+                        };
+                    })()
+                }));
+
+                structureInfo.forEach(s => clippingPlanes.set(s.name, []));
+
+                for (let i = 0; i < structureInfo.length; i++) {
+                    const s1 = structureInfo[i];
+                    for (let j = i + 1; j < structureInfo.length; j++) {
+                        const s2 = structureInfo[j];
+                        const bbox1 = s1.bboxWithMargin;
+                        const bbox2 = s2.bboxWithMargin;
+
+                        const overlap = (bbox1.minX <= bbox2.maxX && bbox1.maxX >= bbox2.minX) &&
+                            (bbox1.minY <= bbox2.maxY && bbox1.maxY >= bbox2.minY) &&
+                            (bbox1.minZ <= bbox2.maxZ && bbox1.maxZ >= bbox2.minZ);
+
+                        if (overlap) {
+                            const c1 = s1.bboxWithMargin.center;
+                            const c2 = s2.bboxWithMargin.center;
+                            const midpoint = { x: (c1.x + c2.x) / 2, y: (c1.y + c2.y) / 2, z: (c1.z + c2.z) / 2 };
+                            let normal = { x: c2.x - c1.x, y: c2.y - c1.y, z: c2.z - c1.z };
+                            const mag = Math.hypot(normal.x, normal.y, normal.z);
+                            if (mag > 1e-6) {
+                                normal.x /= mag; normal.y /= mag; normal.z /= mag;
+                            }
+
+                            clippingPlanes.get(s1.name).push({ point: midpoint, normal: normal });
+                            clippingPlanes.get(s2.name).push({ point: midpoint, normal: { x: -normal.x, y: -normal.y, z: -normal.z } });
+                        }
+                    }
+                }
+                return clippingPlanes;
+            }
+
+            static _calculateMetricsForStep(structure, doseData, rxDose, step, margin, clippingPlanes, progressCallback) {
+                return new Promise((resolve) => {
+                    const { center, ...bbox } = CalculationEngine.getBoundingBoxAndCenter(structure);
+                    const calcBBox = { minX: bbox.minX - margin, maxX: bbox.maxX + margin, minY: bbox.minY - margin, maxY: bbox.maxY + margin, minZ: bbox.minZ - margin, maxZ: bbox.maxZ + margin };
+                    const sampleVolume = (step ** 3) / 1000;
+                    const histogram = new Map();
+                    let PIV = 0, V12Gy = 0, V_Rx_50 = 0, Dmax = 0;
+
+                    const numStepsX = Math.floor((calcBBox.maxX - calcBBox.minX) / step) + 1;
+                    const numStepsY = Math.floor((calcBBox.maxY - calcBBox.minY) / step) + 1;
+                    const numStepsZ = Math.floor((calcBBox.maxZ - calcBBox.minZ) / step) + 1;
+
+                    const points = [];
+                    for (let kz = 0; kz < numStepsZ; kz++) {
+                        const z = calcBBox.minZ + kz * step;
+                        for (let ky = 0; ky < numStepsY; ky++) {
+                            const y = calcBBox.minY + ky * step;
+                            for (let kx = 0; kx < numStepsX; kx++) {
+                                const x = calcBBox.minX + kx * step;
+                                points.push({ x, y, z });
+                            }
+                        }
+                    }
+
+                    const processBatch = (startIndex = 0) => {
+                        const batchSize = 50000;
+                        const endIndex = Math.min(startIndex + batchSize, points.length);
+
+                        for (let i = startIndex; i < endIndex; i++) {
+                            const p = points[i];
+                            let clipped = false;
+                            for (const plane of clippingPlanes) {
+                                const vec_x = p.x - plane.point.x, vec_y = p.y - plane.point.y, vec_z = p.z - plane.point.z;
+                                if (vec_x * plane.normal.x + vec_y * plane.normal.y + vec_z * plane.normal.z > 1e-6) {
+                                    clipped = true;
+                                    break;
+                                }
+                            }
+                            if (clipped) continue;
+
+                            const dose = this.getDoseAtPoint(p.x, p.y, p.z, doseData);
+                            if (dose > 0) {
+                                if (CalculationEngine.isPointInStructure(p, structure)) {
+                                    const doseBin = Math.round(dose * 10) / 10;
+                                    histogram.set(doseBin, (histogram.get(doseBin) || 0) + sampleVolume);
+                                    if (dose > Dmax) Dmax = dose;
+                                }
+                                if (dose >= rxDose) PIV += sampleVolume;
+                                if (dose >= 12.0) V12Gy += sampleVolume;
+                                if (dose >= rxDose * 0.5) V_Rx_50 += sampleVolume;
+                            }
+                        }
+
+                        if (endIndex < points.length) {
+                            if (progressCallback) progressCallback(endIndex / points.length);
+                            setTimeout(() => processBatch(endIndex), 0);
+                        } else {
+                            if (progressCallback) progressCallback(1);
+                            const sortedDoseBins = Array.from(histogram.keys()).sort((a, b) => b - a);
+                            const TV = sortedDoseBins.reduce((sum, bin) => sum + histogram.get(bin), 0);
+                            const getDoseAtVolumePercent = (percent) => { let vol = 0; const targetVol = TV * (percent / 100.0); if (targetVol === 0) return 0; for (const bin of sortedDoseBins) { vol += histogram.get(bin); if (vol >= targetVol) return bin; } return 0; };
+                            const getVolumeAtDose = (doseThreshold) => { let vol = 0; for (const bin of sortedDoseBins) { if (bin >= doseThreshold) vol += histogram.get(bin); else break; } return vol; };
+                            const TV_PIV = getVolumeAtDose(rxDose);
+                            const D2 = getDoseAtVolumePercent(2), D98 = getDoseAtVolumePercent(98), D50 = getDoseAtVolumePercent(50);
+                            const effectiveDiameter = TV > 0 ? 2 * Math.pow((3 * TV * 1000) / (4 * Math.PI), 1 / 3) : 0;
+                            const coverage = TV > 0 ? TV_PIV / TV : 0;
+                            const paddickCI = (TV > 0 && PIV > 0) ? (TV_PIV * TV_PIV) / (TV * PIV) : 0;
+                            const rtogCI = TV > 0 ? PIV / TV : 0;
+                            const HI = D50 > 0 ? (D2 - D98) / D50 : 0;
+                            const GI = PIV > 0 ? V_Rx_50 / PIV : 0;
+                            resolve({ TV, Dmax, coverage, paddickCI, rtogCI, HI, GI, PIV, V12Gy, effectiveDiameter, finalGrid: step });
+                        }
+                    };
+                    processBatch();
+                });
+            }
+
+            static async calculateAllMetrics(structure, doseData, rxDose, margin, clippingPlanes, progressCallback) {
+                let stepSizes = [1.0, 0.5, 0.25];
+                let finalMetrics = null;
+
+                const initialMetrics = await this._calculateMetricsForStep(structure, doseData, rxDose, 1.0, margin, clippingPlanes, () => { });
+
+                if (initialMetrics.effectiveDiameter >= 10.0) {
+                    finalMetrics = initialMetrics;
+                    progressCallback(`Target >= 1cm. Using 1.0mm grid.`, 1.0);
+                } else {
+                    let previousVolume = -1;
+                    for (let i = 0; i < stepSizes.length; i++) {
+                        const step = stepSizes[i];
+                        if (step <= 0) return Promise.reject(new Error("Step size must be positive."));
+
+                        const stepProgressCallback = (batchProgress) => {
+                            const totalProgressForTask = (i + batchProgress) / stepSizes.length;
+                            progressCallback(`Analyzing ${structure.name} (Grid: ${step}mm)...`, totalProgressForTask);
+                        };
+
+                        const currentMetrics = await this._calculateMetricsForStep(structure, doseData, rxDose, step, margin, clippingPlanes, stepProgressCallback);
+                        const currentVolume = currentMetrics.TV;
+
+                        if (previousVolume >= 0) {
+                            const diff = (previousVolume > 0) ? Math.abs(currentVolume - previousVolume) / previousVolume : 0;
+                            if (diff < 0.05) {
+                                finalMetrics = currentMetrics;
+                                progressCallback(`Convergence reached for ${structure.name}. Finalizing...`, 1.0);
+                                break;
+                            }
+                        }
+                        previousVolume = currentVolume;
+                        finalMetrics = currentMetrics;
+                    }
+                }
+
+                return finalMetrics;
+            }
+        }
+
+        class SliceViewer {
+            constructor(axialCanvas, sagittalCanvas, coronalCanvas, infoElement, legendElement) {
+                this.views = {
+                    axial: { canvas: axialCanvas, ctx: axialCanvas.getContext('2d') },
+                    sagittal: { canvas: sagittalCanvas, ctx: sagittalCanvas.getContext('2d') },
+                    coronal: { canvas: coronalCanvas, ctx: coronalCanvas.getContext('2d') },
+                };
+                this.sharedZoom = 100;
+                this.infoElement = infoElement;
+                this.legendElement = legendElement;
+                this.currentStructure = null;
+                this.currentDoseData = null;
+                this.currentRxDose = null;
+                this.currentMargin = 15.0;
+                this.isodoseColors = {
+                    v100: 'rgba(255, 0, 0, 0.6)',
+                    v50: 'rgba(0, 128, 255, 0.5)',
+                    v12: 'rgba(255, 165, 0, 0.6)'
+                };
+                this.structureColor = 'rgba(255, 255, 0, 0.6)';
+                this.rawPointColor = 'rgba(0, 255, 0, 0.9)';
+                this.bboxColor = 'rgba(0, 255, 255, 0.5)';
+                Object.values(this.views).forEach(view => view.canvas.addEventListener('wheel', e => this.handleWheel(e)));
+                this.updateLegend();
+            }
+
+            updateLegend() {
+                // Convert rgba to solid colors for legend display
+                const solidColors = {
+                    v100: 'rgb(255, 0, 0)',
+                    v50: 'rgb(0, 128, 255)',
+                    v12: 'rgb(255, 165, 0)',
+                    structure: 'rgb(255, 255, 0)'
+                };
+                
+                this.legendElement.innerHTML = `
+                    <div class="legend-item"><div class="legend-color-box" style="background-color: ${solidColors.v100};"></div><span>100% Isodose</span></div>
+                    <div class="legend-item"><div class="legend-color-box" style="background-color: ${solidColors.v50};"></div><span>50% Isodose</span></div>
+                    <div class="legend-item"><div class="legend-color-box" style="background-color: ${solidColors.v12};"></div><span>12 Gy Isodose</span></div>
+                    <div class="legend-item"><div class="legend-color-box" style="background-color: ${solidColors.structure};"></div><span>Target Volume</span></div>
+                `;
+            }
+
+            handleWheel(e) {
+                e.preventDefault();
+                const zoomFactor = 1.1;
+                this.sharedZoom = e.deltaY < 0 ? this.sharedZoom / zoomFactor : this.sharedZoom * zoomFactor;
+                this.sharedZoom = Math.max(10, Math.min(500, this.sharedZoom));
+                this.updateView(this.currentStructure, this.currentDoseData, this.currentRxDose, this.currentMargin);
+            }
+
+            clear() {
+                for (const key in this.views) {
+                    const view = this.views[key];
+                    view.canvas.width = view.canvas.width;
+                    view.ctx.fillStyle = 'black';
+                    view.ctx.fillRect(0, 0, view.canvas.width, view.canvas.height);
+                }
+                this.infoElement.textContent = 'Select a structure to view';
+                this.currentStructure = null; this.currentDoseData = null; this.currentRxDose = null;
+            }
+
+            updateView(structure, doseData, rxDose, margin = 15.0) {
+                if (!structure) { this.clear(); return; }
+                this.currentStructure = structure;
+                this.currentDoseData = doseData;
+                this.currentRxDose = rxDose;
+                this.currentMargin = margin;
+
+                const { center: trueCenter } = CalculationEngine.getBoundingBoxAndCenter(structure);
+                let viewCenter = { ...trueCenter };
+
+                if (structure.contours && structure.contours.length > 0) {
+                    const closestContour = structure.contours.reduce((prev, curr) => {
+                        return (Math.abs(curr[0].z - trueCenter.z) < Math.abs(prev[0].z - trueCenter.z) ? curr : prev);
+                    });
+                    viewCenter.z = closestContour[0].z;
+                }
+
+                this.infoElement.textContent = `Viewing: ${structure.name} @ (X:${viewCenter.x.toFixed(1)}, Y:${viewCenter.y.toFixed(1)}, Z:${viewCenter.z.toFixed(1)})`;
+                ['axial', 'sagittal', 'coronal'].forEach(v => this.renderSlice(v, viewCenter, structure, doseData, rxDose));
+            }
+
+            renderSlice(viewType, center, structure, doseData, rxDose) {
+                const view = this.views[viewType];
+                const { canvas, ctx } = view;
+                const zoom = this.sharedZoom;
+                const res = 256;
+                canvas.width = canvas.height = res;
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, res, res);
+                const imageData = ctx.createImageData(res, res);
+
+                const structureFillRgba = this.parseRgba(this.structureColor);
+                const doseColorsRgba = {
+                    v100: this.parseRgba(this.isodoseColors.v100),
+                    v50: this.parseRgba(this.isodoseColors.v50),
+                    v12: this.parseRgba(this.isodoseColors.v12)
+                };
+
+                if (doseData && rxDose) {
+                    const v100Level = rxDose;
+                    const v50Level = rxDose * 0.5;
+                    const v12Level = 12.0;
+
+                    for (let py = 0; py < res; py++) {
+                        for (let px = 0; px < res; px++) {
+                            const p_idx = (py * res + px) * 4;
+                            const pt = this.canvasToPatient(px, py, res, center, zoom, viewType);
+
+                            const dose = CalculationEngine.getDoseAtPoint(pt.x, pt.y, pt.z, doseData);
+                            let doseRgba = null;
+                            if (dose >= v100Level) {
+                                doseRgba = doseColorsRgba.v100;
+                            } else if (dose >= v50Level) {
+                                doseRgba = doseColorsRgba.v50;
+                            } else if (dose >= v12Level) {
+                                doseRgba = doseColorsRgba.v12;
+                            }
+
+                            let [r, g, b] = [0, 0, 0];
+                            if (doseRgba) {
+                                [r, g, b] = [doseRgba[0], doseRgba[1], doseRgba[2]];
+                            }
+
+                            if (CalculationEngine.isPointInStructure(pt, structure)) {
+                                const [sr, sg, sb, sa] = structureFillRgba;
+                                r = sr * sa + r * (1 - sa);
+                                g = sg * sa + g * (1 - sa);
+                                b = sb * sa + b * (1 - sa);
+                            }
+
+                            imageData.data[p_idx] = r;
+                            imageData.data[p_idx + 1] = g;
+                            imageData.data[p_idx + 2] = b;
+                            imageData.data[p_idx + 3] = 255;
+                        }
+                    }
+                }
+                ctx.putImageData(imageData, 0, 0);
+
+                this.drawCalcBBox(ctx, structure, center, res, zoom, viewType);
+
+                ctx.fillStyle = this.rawPointColor;
+                const mmPerPixel = this.sharedZoom / res;
+                const dotSizeMM = 0.4;
+                const dotSizePX = Math.max(2.5, dotSizeMM / mmPerPixel);
+
+                structure.contours.forEach(contour => {
+                    contour.forEach(p => {
+                        const canvasPt = this.patientToCanvas(p, res, center, zoom, viewType, true);
+                        if (canvasPt) {
+                            ctx.fillRect(canvasPt.px - (dotSizePX / 2), canvasPt.py - (dotSizePX / 2), dotSizePX, dotSizePX);
+                        }
+                    });
+                });
+
+                this.drawScaleBar(ctx, res, zoom);
+            }
+
+            drawScaleBar(ctx, canvasRes, zoom) {
+                const mmPerPixel = zoom / canvasRes;
+                const scaleBarLengthMM = 10;
+                const scaleBarLengthPX = scaleBarLengthMM / mmPerPixel;
+                const x = 10, y = canvasRes - 15;
+                ctx.strokeStyle = 'white'; ctx.fillStyle = 'white';
+                ctx.lineWidth = 1; ctx.font = '10px Arial'; ctx.textAlign = 'left';
+                ctx.beginPath();
+                ctx.moveTo(x, y - 5); ctx.lineTo(x, y); ctx.lineTo(x + scaleBarLengthPX, y); ctx.lineTo(x + scaleBarLengthPX, y - 5);
+                ctx.stroke();
+                ctx.fillText('1 cm', x, y - 8);
+            }
+
+            drawCalcBBox(ctx, structure, center, res, zoom, viewType) {
+                const bbox = CalculationEngine.getBoundingBoxAndCenter(structure);
+                const margin = this.currentMargin;
+                const calcBBox = { minX: bbox.minX - margin, maxX: bbox.maxX + margin, minY: bbox.minY - margin, maxY: bbox.maxY + margin, minZ: bbox.minZ - margin, maxZ: bbox.maxZ + margin };
+
+                const p1 = this.patientToCanvas({ x: calcBBox.minX, y: calcBBox.minY, z: calcBBox.minZ }, res, center, zoom, viewType, false);
+                const p2 = this.patientToCanvas({ x: calcBBox.maxX, y: calcBBox.maxY, z: calcBBox.maxZ }, res, center, zoom, viewType, false);
+
+                if (!p1 || !p2) return;
+
+                let rect;
+                if (viewType === 'axial') rect = { x: p1.px, y: p1.py, w: p2.px - p1.px, h: p2.py - p1.py };
+                else if (viewType === 'sagittal') rect = { x: p1.px, y: p2.py, w: p2.px - p1.px, h: p1.py - p2.py };
+                else rect = { x: p1.px, y: p2.py, w: p2.px - p1.px, h: p1.py - p2.py };
+
+                ctx.strokeStyle = this.bboxColor;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 3]);
+                ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+                ctx.setLineDash([]);
+            }
+
+            parseRgba(rgba) { return rgba.substring(rgba.indexOf('(') + 1, rgba.lastIndexOf(')')).split(/,\s*/).map(Number); }
+            canvasToPatient(px, py, res, center, zoom, viewType) { const hZ = zoom / 2, x_mm = (px / res) * zoom - hZ, y_mm = (py / res) * zoom - hZ; if (viewType === 'axial') return { x: center.x + x_mm, y: center.y + y_mm, z: center.z }; if (viewType === 'sagittal') return { x: center.x, y: center.y + x_mm, z: center.z - y_mm }; if (viewType === 'coronal') return { x: center.x + x_mm, y: center.y, z: center.z - y_mm }; return null; }
+            patientToCanvas(pt, res, center, zoom, viewType, checkSlice) {
+                let dx, dy, slice_coord_pt, slice_coord_center;
+                if (viewType === 'axial') { dx = pt.x - center.x; dy = pt.y - center.y; slice_coord_pt = pt.z; slice_coord_center = center.z; }
+                else if (viewType === 'sagittal') { dx = pt.y - center.y; dy = -(pt.z - center.z); slice_coord_pt = pt.x; slice_coord_center = center.x; }
+                else { dx = pt.x - center.x; dy = -(pt.z - center.z); slice_coord_pt = pt.y; slice_coord_center = center.y; }
+                if (checkSlice && Math.abs(slice_coord_pt - slice_coord_center) > 0.5) return null;
+                const hZ = zoom / 2; if (Math.abs(dx) > hZ || Math.abs(dy) > hZ) return null;
+                const px = ((dx + hZ) / zoom) * res, py = ((dy + hZ) / zoom) * res; return { px, py };
+            }
+        }
+
+        CalculationEngine.getInsidenessValue = function (point, structure) {
+            const contours = structure.contours;
+            if (!contours || contours.length === 0) return 0;
+            const bbox = this.getBoundingBoxAndCenter(structure);
+            if (point.x < bbox.minX || point.x > bbox.maxX || point.y < bbox.minY || point.y > bbox.maxY || point.z < bbox.minZ || point.z > bbox.maxZ) return 0;
+
+            let lowerContour = null, upperContour = null;
+            for (let i = 0; i < contours.length; i++) {
+                if (contours[i][0].z <= point.z) lowerContour = contours[i];
+                if (contours[i][0].z >= point.z) { upperContour = contours[i]; break; }
+            }
+            if (!lowerContour && !upperContour) return 0;
+            if (!lowerContour) return this.isPointInPolygon({ x: point.x, y: point.y }, upperContour) ? 1 : 0;
+            if (!upperContour) return this.isPointInPolygon({ x: point.x, y: point.y }, lowerContour) ? 1 : 0;
+            if (lowerContour === upperContour) return this.isPointInPolygon({ x: point.x, y: point.y }, lowerContour) ? 1 : 0;
+
+            const z_dist = upperContour[0].z - lowerContour[0].z;
+            if (z_dist < 1e-6) return this.isPointInPolygon({ x: point.x, y: point.y }, lowerContour) ? 1 : 0;
+
+            const weight = (point.z - lowerContour[0].z) / z_dist;
+            const inLower = this.isPointInPolygon({ x: point.x, y: point.y }, lowerContour) ? 1 : 0;
+            const inUpper = this.isPointInPolygon({ x: point.x, y: point.y }, upperContour) ? 1 : 0;
+
+            return (1 - weight) * inLower + weight * inUpper;
+        }
+
+        CalculationEngine.isPointInStructure = function (point, structure) {
+            return this.getInsidenessValue(point, structure) >= 0.5;
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new SrsQualityApp();
+            app.init();
+        });
+    </script>
+</body>
+
+</html>
