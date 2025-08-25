@@ -1,6 +1,6 @@
 # SRShelper - README
 
-**Version:** 1.0.0RC1
+**Version:** 1.0.0  
 **Author:** Taoran Li, PhD  
 **Date:** August 2025
 
@@ -80,8 +80,8 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 
 * **Bounding Box Margin:** Adjust the calculation region margin around structures (default: 15mm).
 * **Grid Resolution:** The tool automatically adapts calculation grid resolution based on target size:
-    * Targets â‰¥10mm diameter: 1.0mm grid for efficiency.
-    * Smaller targets: Progressive refinement (1.0mm â†’ 0.5mm â†’ 0.25mm) until convergence.
+    * Targets ≥10mm diameter: 1.0mm grid for efficiency
+    * Smaller targets: Progressive refinement (1.0mm → 0.5mm → 0.25mm) until convergence.
 
 ### Step 4: Calculate and Analyze
 
@@ -100,9 +100,9 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 ### 4.1. Conformity Indices
 
 #### 4.1.1. Paddick Conformity Index (CI)
-The gold standard for SRS conformity assessment, defined as:
+SRS conformity assessment, defined as:
 ```
-Paddick CI = (TV_PIV)Â² / (TV Ã— PIV)
+Paddick CI = (TV_PIV)² / (TV × PIV)
 ```
 Where:
 - TV_PIV = Target Volume covered by Prescription Isodose Volume
@@ -110,7 +110,6 @@ Where:
 - PIV = Prescription Isodose Volume
 
 **Ideal Value:** 1.0 (perfect conformity)
-**Acceptable Range:** 0.5 - 1.0
 
 #### 4.1.2. RTOG Conformity Index
 A simpler conformity metric defined as:
@@ -118,17 +117,15 @@ A simpler conformity metric defined as:
 RTOG CI = PIV / TV
 ```
 **Ideal Value:** 1.0
-**Acceptable Range:** 1.0 - 2.0
 
 ### 4.2. Gradient Index (GI)
 Quantifies dose fall-off characteristics outside the target:
 ```
-GI = V_50% / PIV
+GI = V50% / V100%
 ```
 Where V_50% is the volume receiving 50% of prescription dose.
 
 **Lower values indicate better dose gradients**
-**Typical Range:** 2.0 - 5.0 for SRS plans
 
 ### 4.3. Homogeneity Index (HI)
 Evaluates dose uniformity within the target:
@@ -142,9 +139,8 @@ Where D2%, D50%, D98% are dose levels to 2%, 50%, and 98% of target volume.
 ### 4.4. Coverage
 Percentage of target volume receiving the prescription dose:
 ```
-Coverage = TV_PIV / TV Ã— 100%
+Coverage = TV_PIV / TV × 100%
 ```
-**Target:** â‰¥95% for most SRS applications
 
 ### 4.5. V12Gy
 Volume of normal tissue receiving 12 Gy or more, critical for minimizing radiation necrosis risk in brain SRS.
@@ -188,7 +184,7 @@ Comprehensive results table with:
 
 ### 6.1. Adaptive Grid Resolution
 The calculation engine automatically optimizes grid resolution based on target characteristics:
-- **Large Targets (â‰¥10mm):** Single-pass 1.0mm grid for computational efficiency
+- **Large Targets (>10mm):** Single-pass 1.0mm grid for computational efficiency
 - **Small Targets (<10mm):** Multi-pass refinement with convergence criteria to ensure accuracy
 
 ### 6.2. Intelligent Clipping Planes
@@ -237,8 +233,8 @@ This tool is designed to support:
 
 ### 9.1. SRS Quality Metrics
 * Paddick, I. (2000). A simple scoring ratio to index the conformity of radiosurgical treatment plans. *Journal of Neurosurgery*, 93(3), 219-222.
-* Shaw, E., et al. (2000). Radiation Therapy Oncology Group: radiosurgery quality assurance guidelines. *International Journal of Radiation Oncology, Biology, Physics*, 48(2), 419-430.
-* Nakamura, J. L., et al. (2007). Dose conformity of gamma knife radiosurgery and risk factors for complications. *International Journal of Radiation Oncology, Biology, Physics*, 68(2), 364-370.
+* Shaw, E., Kline, R., Gillin, M., Souhami, L., Hirschfeld, A., Dinapoli, R., & Martin, L. (1993). Radiation Therapy Oncology Group: radiosurgery quality assurance guidelines. *International Journal of Radiation Oncology, Biology, Physics*, 27(5), 1231-1239.
+* Nakamura, J. L., Verhey, L. J., Smith, V., Petti, P. L., Lamborn, K. R., Larson, D. A., Wara, W. M., McDermott, M. W., & Sneed, P. K. (2001). Dose conformity of gamma knife radiosurgery and risk factors for complications. *International Journal of Radiation Oncology, Biology, Physics*, 51(5), 1313-1319.
 
 ### 9.2. Gradient Index and Dose Fall-off
 * Lomax, N. J., & Scheib, S. G. (2003). Quantifying the degree of conformity in radiosurgery treatment planning. *International Journal of Radiation Oncology, Biology, Physics*, 55(5), 1409-1419.
@@ -246,7 +242,6 @@ This tool is designed to support:
 
 ### 9.3. Clinical Guidelines
 * Benedict, S. H., et al. (2010). Stereotactic body radiation therapy: the report of AAPM Task Group 101. *Medical Physics*, 37(8), 4078-4101.
-* Solberg, T. D., et al. (2012). Quality and safety considerations in stereotactic radiosurgery and stereotactic body radiation therapy. *Practical Radiation Oncology*, 2(1), 2-9.
 
 ---
 
@@ -263,6 +258,6 @@ This tool is actively developed for research and educational applications. Featu
 
 ---
 
-**âš ï¸ IMPORTANT DISCLAIMER âš ï¸**
+**IMPORTANT DISCLAIMER**
 
 **This software is provided for educational and research purposes only. It has not been validated for clinical use and should not be used for patient treatment planning or clinical decision-making. All results should be independently verified using clinically validated software before any clinical application.**
