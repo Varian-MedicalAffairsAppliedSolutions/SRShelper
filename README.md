@@ -69,7 +69,7 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 
 ### Step 2: Select Target Structures
 
-* **Automatic Selection:** Use the "Select GTV/PTV/CTV" button to automatically select common target volume structures.
+* **Automatic Selection:** Use the "Select All Targets" button to automatically select all displayed target volume structures.
 * **Manual Selection:** 
     * Click individual structures in the structure list.
     * Use Ctrl+Click for multi-selection.
@@ -80,8 +80,8 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 
 * **Bounding Box Margin:** Adjust the calculation region margin around structures (default: 15mm).
 * **Grid Resolution:** The tool automatically adapts calculation grid resolution based on target size:
-    * Targets â‰¥10mm diameter: 1.0mm grid for efficiency
-    * Smaller targets: Progressive refinement (1.0mm â†’ 0.5mm â†’ 0.25mm) until convergence.
+    * Targets >=10mm diameter: 1.0mm grid for efficiency
+    * Smaller targets: Progressive refinement (1.0mm -> 0.5mm -> 0.25mm) until convergence.
 
 ### Step 4: Calculate and Analyze
 
@@ -102,7 +102,7 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 #### 4.1.1. Paddick Conformity Index (CI)
 SRS conformity assessment, defined as:
 ```
-Paddick CI = (TV_PIV)Â² / (TV Ã— PIV)
+Paddick CI = (TV_PIV)^2 / (TV * PIV)
 ```
 Where:
 - TV_PIV = Target Volume covered by Prescription Isodose Volume
@@ -123,7 +123,7 @@ Quantifies dose fall-off characteristics outside the target:
 ```
 GI = V50% / V100%
 ```
-Where V_50% is the volume receiving 50% of prescription dose.
+Where V50% is the volume receiving 50% of prescription dose.
 
 **Lower values indicate better dose gradients**
 
