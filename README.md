@@ -17,7 +17,7 @@ SRShelper is a web-based application designed for comprehensive analysis and com
     * **V12Gy:** Volume receiving 12 Gy or more (critical for normal tissue sparing).
     * **PIV (Prescription Isodose Volume):** Total volume receiving prescription dose.
 * Visualize results through interactive analysis plots comparing plans across multiple metrics.
-* Examine target structures and dose distributions in a real-time **3D Orthogonal Viewer** with:
+* Examine target structures and dose distributions in a real-time **orthogonal slice viewer** with:
     * Axial, sagittal, and coronal slice views.
     * Isodose line rendering (100%, 50%, and 12 Gy levels).
     * Structure contour overlays with bounding box visualization.
@@ -80,8 +80,8 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 
 * **Bounding Box Margin:** Adjust the calculation region margin around structures (default: 15mm).
 * **Grid Resolution:** The tool automatically adapts calculation grid resolution based on target size:
-    * Targets ≥10mm diameter: 1.0mm grid for efficiency
-    * Smaller targets: Progressive refinement (1.0mm → 0.5mm → 0.25mm) until convergence.
+    * Targets â‰¥10mm diameter: 1.0mm grid for efficiency
+    * Smaller targets: Progressive refinement (1.0mm â†’ 0.5mm â†’ 0.25mm) until convergence.
 
 ### Step 4: Calculate and Analyze
 
@@ -89,7 +89,7 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 * **Interactive Analysis:**
     * **Analysis Plots:** Four scatter plots showing metrics vs. effective diameter.
     * **Comparison Table:** Detailed numerical results with plan grouping.
-    * **3D Viewer:** Click on plot points or table rows to visualize structures and dose distributions.
+    * **Orthogonal Viewer:** Click on plot points or table rows to visualize structures and dose distributions in axial, sagittal, and coronal slice views.
 * **Export Results:** Use "Export CSV" to save detailed comparison data.
 * **Clear Results:** Use "Clear Calculation Results" to reset analysis while keeping files loaded.
 
@@ -102,7 +102,7 @@ The tool requires both RT Structure Set and RT Dose files for analysis:
 #### 4.1.1. Paddick Conformity Index (CI)
 SRS conformity assessment, defined as:
 ```
-Paddick CI = (TV_PIV)² / (TV × PIV)
+Paddick CI = (TV_PIV)Â² / (TV Ã— PIV)
 ```
 Where:
 - TV_PIV = Target Volume covered by Prescription Isodose Volume
@@ -139,7 +139,7 @@ Where D2%, D50%, D98% are dose levels to 2%, 50%, and 98% of target volume.
 ### 4.4. Coverage
 Percentage of target volume receiving the prescription dose:
 ```
-Coverage = TV_PIV / TV × 100%
+Coverage = TV_PIV / TV * 100%
 ```
 
 ### 4.5. V12Gy
@@ -163,7 +163,7 @@ Four interactive scatter plots display:
 
 Each plot groups results by treatment plan, allowing direct comparison of plan performance across different target sizes.
 
-### 5.2. 3D Orthogonal Viewer
+### 5.2. Orthogonal Slice Viewer
 Real-time visualization system featuring:
 - **Three Orthogonal Views:** Axial, sagittal, and coronal slices
 - **Isodose Rendering:** 100% (red), 50% (blue), and 12 Gy (orange) isodose lines
@@ -174,7 +174,7 @@ Real-time visualization system featuring:
 ### 5.3. Comparison Table
 Comprehensive results table with:
 - **Plan Grouping:** Results organized by treatment plan and target structure
-- **Interactive Selection:** Click rows to view in 3D viewer
+- **Interactive Selection:** Click rows to view in orthogonal slice viewer
 - **Export Capability:** CSV export for statistical analysis
 - **Color-Coded Highlighting:** Selected results highlighted across interface
 
