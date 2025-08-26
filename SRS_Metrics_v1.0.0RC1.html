@@ -720,8 +720,8 @@
                 <p>
                     <strong>Step 2: Select Target Structures.</strong>
                     <ul>
-                        <li>Choose target volumes (GTV, PTV, CTV) from the structure list.</li>
-                        <li>Use Ctrl/Shift for multi-selection or use the "Select GTV/PTV/CTV" button.</li>
+                        <li>Target volumes (GTV, PTV, CTV) are automatically filtered and displayed.</li>
+                        <li>Use Ctrl/Shift for multi-selection or use the "Select All Targets" button.</li>
                         <li>Set individual prescription doses for each structure if needed.</li>
                     </ul>
                 </p>
@@ -737,7 +737,7 @@
                     <ul>
                         <li>Click "Calculate Metrics" to compute SRS quality indices.</li>
                         <li>Review results in interactive plots and comparison table.</li>
-                        <li>Click on plot points or table rows to view structures in 3D viewer.</li>
+                        <li>Click on plot points or table rows to view structures in orthogonal slice viewer.</li>
                         <li>Use "Clear Calculation Results" to reset analysis while keeping files loaded.</li>
                     </ul>
                 </p>
@@ -773,7 +773,7 @@
                         structures selected</div>
                     <div id="structureList"></div>
                     <div class="btn-group">
-                        <button class="btn" id="selectAllTargetsBtn">Select GTV/PTV/CTV</button>
+                        <button class="btn" id="selectAllTargetsBtn">Select All Targets</button>
                         <button class="btn secondary" id="deselectAllBtn">Deselect All</button>
                     </div>
                 </div>
@@ -1332,16 +1332,29 @@
                 const listElement = document.getElementById('structureList');
                 listElement.innerHTML = '';
                 this.lastClickedIndex = null;
-                const structures = this.rsData?.structures || [];
+                const allStructures = this.rsData?.structures || [];
+                
+                // Filter to only show target structures (GTV, PTV, CTV)
+                const targetKeywords = ['PTV', 'GTV', 'CTV'];
+                const isTargetStructure = (structureName) => {
+                    const upperName = structureName.toUpperCase();
+                    return targetKeywords.some(keyword => upperName.includes(keyword));
+                };
+                
+                const structures = allStructures.filter(structure => isTargetStructure(structure.name));
+                
                 if (structures.length === 0) {
-                    listElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No structures found</div>';
+                    const totalStructures = allStructures.length;
+                    listElement.innerHTML = `<div style="padding: 20px; text-align: center; color: #999;">
+                        No target structures found (GTV, PTV, CTV)<br>
+                        <span style="font-size: 11px; color: #777;">${totalStructures} total structure(s) in file</span>
+                    </div>`;
                     return;
                 }
 
-                const priorityKeywords = ['PTV', 'GTV', 'CTV'];
                 const getPriority = (structureName) => {
                     const upperName = structureName.toUpperCase();
-                    return priorityKeywords.some(keyword => upperName.includes(keyword)) ? 1 : 2;
+                    return targetKeywords.some(keyword => upperName.includes(keyword)) ? 1 : 2;
                 };
                 structures.sort((a, b) => {
                     const priorityA = getPriority(a.name);
@@ -1351,7 +1364,7 @@
                 });
 
                 const defaultRx = document.getElementById('rxDose').value;
-                structures.forEach((structure, index) => {
+                structures.forEach((structure, filteredIndex) => {
                     structure.rxDose = parseFloat(defaultRx);
                     structure.rxManuallySet = false;
                     const item = document.createElement('div');
@@ -1359,7 +1372,7 @@
                     item.innerHTML = `
                         <div style="flex-grow: 1;">${structure.name}</div>
                         <input type="number" class="structure-rx-input" value="${structure.rxDose.toFixed(1)}"
-                               step="0.1" data-index="${index}" title="Prescription Dose for ${structure.name}">
+                               step="0.1" data-index="${filteredIndex}" title="Prescription Dose for ${structure.name}">
                     `;
                     const rxInput = item.querySelector('input');
                     rxInput.onclick = e => e.stopPropagation();
@@ -1367,13 +1380,13 @@
                         structure.rxDose = parseFloat(e.target.value);
                         structure.rxManuallySet = true;
                     };
-                    item.onclick = (event) => this.handleStructureClick(event, item, structure, index);
+                    item.onclick = (event) => this.handleStructureClick(event, item, structure, filteredIndex, structures);
                     listElement.appendChild(item);
                 });
                 this.updateSelectionStatus();
             }
 
-            handleStructureClick(event, item, structure, index) {
+            handleStructureClick(event, item, structure, filteredIndex, filteredStructures) {
                 const listElement = document.getElementById('structureList');
                 const allItems = Array.from(listElement.children);
                 if (!(event.ctrlKey || event.metaKey || event.shiftKey)) {
@@ -1385,17 +1398,19 @@
                         structure.selected = true;
                     }
                 } else if (event.shiftKey && this.lastClickedIndex !== null) {
-                    const start = Math.min(index, this.lastClickedIndex);
-                    const end = Math.max(index, this.lastClickedIndex);
+                    const start = Math.min(filteredIndex, this.lastClickedIndex);
+                    const end = Math.max(filteredIndex, this.lastClickedIndex);
                     for (let i = start; i <= end; i++) {
-                        this.rsData.structures[i].selected = true;
-                        allItems[i].classList.add('selected');
+                        if (filteredStructures[i]) {
+                            filteredStructures[i].selected = true;
+                            allItems[i].classList.add('selected');
+                        }
                     }
                 } else {
                     structure.selected = !structure.selected;
                     item.classList.toggle('selected');
                 }
-                this.lastClickedIndex = index;
+                this.lastClickedIndex = filteredIndex;
                 this.updateSelectionStatus();
                 this.updateCurrentView();
             }
@@ -1484,16 +1499,33 @@
             selectAllTargets(doSelect) {
                 if (!this.rsData) return;
                 const allItems = document.querySelectorAll('.structure-item');
-                this.rsData.structures.forEach((structure, index) => {
-                    const name = structure.name.toUpperCase();
-                    if (doSelect && (name.includes('GTV') || name.includes('PTV') || name.includes('CTV'))) {
-                        structure.selected = true;
-                        allItems[index].classList.add('selected');
+                
+                // Filter to only target structures (same logic as updateStructureList)
+                const targetKeywords = ['PTV', 'GTV', 'CTV'];
+                const isTargetStructure = (structureName) => {
+                    const upperName = structureName.toUpperCase();
+                    return targetKeywords.some(keyword => upperName.includes(keyword));
+                };
+                
+                // Only work with displayed target structures
+                this.rsData.structures.forEach((structure) => {
+                    if (isTargetStructure(structure.name)) {
+                        structure.selected = doSelect;
                     } else if (!doSelect) {
+                        // For deselect all, also deselect non-target structures
                         structure.selected = false;
-                        allItems[index].classList.remove('selected');
                     }
                 });
+                
+                // Update UI for displayed items
+                allItems.forEach(item => {
+                    if (doSelect) {
+                        item.classList.add('selected');
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                });
+                
                 this.updateSelectionStatus();
             }
 
