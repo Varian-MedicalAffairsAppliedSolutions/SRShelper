@@ -22,7 +22,7 @@ SRShelper is a web-based application designed for comprehensive analysis and com
     * Isodose line rendering (100%, 50%, and 12 Gy levels).
     * Structure contour overlays with bounding box visualization.
 * Export detailed comparison results to CSV format for further analysis.
-* Compare multiple treatment plans side-by-side for the same patient anatomy.
+* **Compare multiple treatment plans side-by-side for the same patient anatomy.**
 
 The tool runs entirely in the browser, ensuring patient data privacy and requiring no software installation. It provides quantitative insights into SRS plan quality for educational, research, and quality assurance applications.
 
