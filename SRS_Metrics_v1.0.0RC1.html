@@ -6,22 +6,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SRShelper</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    <script src="https://unpkg.com/dicom-parser@latest/dist/dicomParser.min.js"></script>
-    <script src="https://unpkg.com/earcut@2.2.3/dist/earcut.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 
     <script>
         // Registration check - must be first
         (function () {
-            const isRegistered = localStorage.getItem('simulator_registered');
-            const token = localStorage.getItem('registration_token');
+            const isRegistered = localStorage.getItem('srshelper_registered');
+            const token = localStorage.getItem('srshelper_registration_token');
             
-            if (!isRegistered || isRegistered !== 'true' || !token || token !== 'd5b62259') {
+            if (!isRegistered || isRegistered !== 'true' || !token || token !== 'D5B62259') {
                 // Redirect to registration page
                 window.location.href = 'gate/register.html';
                 return;
             }
         })();
+    </script>
+
+    <!-- Local-first async loader for critical libraries (mirrors simulator pattern) -->
+    <script>
+        function loadScriptWithFallback(localPath, cdnPath, integrityHash = null, crossorigin = null) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = localPath;
+                script.onload = () => resolve();
+                script.onerror = () => {
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = cdnPath;
+                    if (integrityHash) fallbackScript.integrity = integrityHash;
+                    if (crossorigin) fallbackScript.crossOrigin = crossorigin;
+                    fallbackScript.onload = () => resolve();
+                    fallbackScript.onerror = () => reject(new Error('Failed to load: ' + cdnPath));
+                    document.head.appendChild(fallbackScript);
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        async function loadCriticalScripts() {
+            try {
+                // Load dicom-parser and chart locally first, with CDN fallback
+                await loadScriptWithFallback('lib/dicom-parser.min.js', 'https://unpkg.com/dicom-parser@latest/dist/dicomParser.min.js');
+                await loadScriptWithFallback('lib/chart.min.js', 'https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js');
+            } catch (error) {
+                // Continue even if a fallback fails; app init will surface missing globals if needed
+                console.error('Library loading error:', error);
+            }
+
+            // Load earcut in the background (not required for initial UI)
+            loadScriptWithFallback('lib/earcut.min.js', 'https://unpkg.com/earcut@2.2.3/dist/earcut.min.js').catch(function () { /* noop */ });
+        }
+
+        window.__srsLibsReady = loadCriticalScripts();
     </script>
 
     <style>
@@ -2229,8 +2264,10 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-            const app = new SrsQualityApp();
-            app.init();
+            (window.__srsLibsReady || Promise.resolve()).then(() => {
+                const app = new SrsQualityApp();
+                app.init();
+            });
         });
     </script>
 </body>

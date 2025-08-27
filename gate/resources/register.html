@@ -117,7 +117,6 @@
             border-radius: 4px;
             font-size: 16px;
             text-align: center;
-            text-transform: uppercase;
         }
         
         .token-entry button {
@@ -195,20 +194,10 @@
         <p>To access SRShelper, please complete the registration form below. This helps us track usage and ensure compliance with the software license agreement.</p>
         
         <div class="jotform-container">
-            <iframe
-              id="JotFormIFrame-252365843484162"
-              title="Varian Limited Use Software License Agreement (SRShelper)"
-              onload="window.parent.scrollTo(0,0)"
-              allowtransparency="true"
-              allow="geolocation; microphone; camera; fullscreen; payment"
-              src="https://form.jotform.com/252365843484162"
-              frameborder="0"
-              style="min-width:100%;max-width:100%;height:539px;border:none;"
-              scrolling="no"
-            >
-            </iframe>
-            <script src='https://cdn.jotfor.ms/s/umd/latest/for-form-embed-handler.js'></script>
-            <script>window.jotformEmbedHandler("iframe[id='JotFormIFrame-252365843484162']", "https://form.jotform.com/")</script>
+            <div class="loading" id="loadingMessage">
+                Loading registration form...
+            </div>
+            <div id="jotform-embed"></div>
         </div>
         </div>
         
@@ -355,14 +344,14 @@
             }
             
             // Validate against the specific registration code
-            const validToken = 'd5b62259';
+            const validToken = 'D5B62259';
             
             if (token === validToken) {
                 // Mark as registered
-                localStorage.setItem('simulator_registered', 'true');
-                localStorage.setItem('registration_timestamp', new Date().toISOString());
-                localStorage.setItem('registration_method', 'mobile_qr');
-                localStorage.setItem('registration_token', token);
+                localStorage.setItem('srshelper_registered', 'true');
+                localStorage.setItem('srshelper_registration_timestamp', new Date().toISOString());
+                localStorage.setItem('srshelper_registration_method', 'mobile_qr');
+                localStorage.setItem('srshelper_registration_token', token);
                 
                 // Show success message
                 showOfflineSuccessMessage();
@@ -390,9 +379,20 @@
         
         // JotForm integration (only called when online)
         function initializeJotForm() {
-            // JotForm is now embedded directly in HTML
-            // Add manual continue button as backup
-            addManualContinueButton();
+            const JOTFORM_ID = '252365843484162';
+            
+            // Create the JotForm embed script (async)
+            const script = document.createElement('script');
+            script.src = 'https://form.jotform.com/jsform/' + JOTFORM_ID;
+            script.async = true;
+            
+            script.onload = function() {
+                const loading = document.getElementById('loadingMessage');
+                if (loading) loading.style.display = 'none';
+                addManualContinueButton();
+            };
+            
+            document.getElementById('jotform-embed').appendChild(script);
             
             // Function to complete registration
             function completeRegistration() {
@@ -403,8 +403,8 @@
                     return;
                 }
                 
-                const normalizedToken = token.trim().toLowerCase();
-                const validToken = 'd5b62259';
+                const normalizedToken = token.trim().toUpperCase();
+                const validToken = 'D5B62259';
                 
                 if (normalizedToken !== validToken) {
                     alert('Invalid registration code. Access denied.');
@@ -412,10 +412,10 @@
                 }
                 
                 // Store registration completion
-                localStorage.setItem('simulator_registered', 'true');
-                localStorage.setItem('registration_timestamp', new Date().toISOString());
-                localStorage.setItem('registration_method', 'online_form');
-                localStorage.setItem('registration_token', normalizedToken);
+                localStorage.setItem('srshelper_registered', 'true');
+                localStorage.setItem('srshelper_registration_timestamp', new Date().toISOString());
+                localStorage.setItem('srshelper_registration_method', 'online_form');
+                localStorage.setItem('srshelper_registration_token', normalizedToken);
                 
                 // Show success message
                 showSuccessMessage();
@@ -478,9 +478,9 @@
         
         // Check if already registered and initialize
         window.addEventListener('load', function() {
-            const isRegistered = localStorage.getItem('simulator_registered');
-            const token = localStorage.getItem('registration_token');
-            if (isRegistered === 'true' && token === 'd5b62259') {
+            const isRegistered = localStorage.getItem('srshelper_registered');
+            const token = localStorage.getItem('srshelper_registration_token');
+            if (isRegistered === 'true' && token === 'D5B62259') {
                 // If already registered, redirect directly
                 window.location.href = '../SRS_Metrics_v1.0.0RC1.html';
                 return;

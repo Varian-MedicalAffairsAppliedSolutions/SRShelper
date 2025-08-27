@@ -109,9 +109,9 @@
 
     <script>
         function checkStatus() {
-            const isRegistered = localStorage.getItem('simulator_registered');
-            const timestamp = localStorage.getItem('registration_timestamp');
-            const userData = localStorage.getItem('registration_data');
+            const isRegistered = localStorage.getItem('srshelper_registered');
+            const timestamp = localStorage.getItem('srshelper_registration_timestamp');
+            const userData = localStorage.getItem('srshelper_registration_data');
             
             const statusDiv = document.getElementById('statusDisplay');
             
@@ -134,9 +134,9 @@
         }
         
         function clearRegistration() {
-            localStorage.removeItem('simulator_registered');
-            localStorage.removeItem('registration_timestamp');
-            localStorage.removeItem('registration_data');
+            localStorage.removeItem('srshelper_registered');
+            localStorage.removeItem('srshelper_registration_timestamp');
+            localStorage.removeItem('srshelper_registration_data');
             alert('Registration cleared!');
             checkStatus();
             showLocalStorage();
@@ -167,8 +167,8 @@
         }
         
         function simulateRegistration() {
-            localStorage.setItem('simulator_registered', 'true');
-            localStorage.setItem('registration_timestamp', new Date().toISOString());
+            localStorage.setItem('srshelper_registered', 'true');
+            localStorage.setItem('srshelper_registration_timestamp', new Date().toISOString());
             alert('Registration simulated! You can now access SRShelper.');
             checkStatus();
             showLocalStorage();
@@ -185,9 +185,9 @@
                 timestamp: new Date().toISOString()
             };
             
-            localStorage.setItem('simulator_registered', 'true');
-            localStorage.setItem('registration_timestamp', userData.timestamp);
-            localStorage.setItem('registration_data', JSON.stringify(userData));
+            localStorage.setItem('srshelper_registered', 'true');
+            localStorage.setItem('srshelper_registration_timestamp', userData.timestamp);
+            localStorage.setItem('srshelper_registration_data', JSON.stringify(userData));
             
             alert('Registration with data simulated!');
             checkStatus();

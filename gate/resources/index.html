@@ -116,9 +116,9 @@
     <script>
         // Check if already registered and redirect if so
         window.addEventListener('load', function() {
-            const isRegistered = localStorage.getItem('simulator_registered');
-            const token = localStorage.getItem('registration_token');
-            if (isRegistered === 'true' && token === 'd5b62259') {
+            const isRegistered = localStorage.getItem('srshelper_registered');
+            const token = localStorage.getItem('srshelper_registration_token');
+            if (isRegistered === 'true' && token === 'D5B62259') {
                 // If already registered, redirect directly to SRShelper
                 window.location.href = '../SRS_Metrics_v1.0.0RC1.html';
             }
