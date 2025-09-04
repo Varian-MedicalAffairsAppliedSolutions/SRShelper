@@ -1796,26 +1796,55 @@
                 const tS = dataSet.string('x00020010');
                 if (!['1.2.840.10008.1.2', '1.2.840.10008.1.2.1'].includes(tS)) throw new Error(`Unsupported/Compressed TS: ${tS}. Please use uncompressed DICOM.`);
                 const fUID = dataSet.string('x00200052');
-                const dGS = parseFloat(dataSet.string('x3004000e') || '1.0');
+                const dGS_raw = dataSet.string('x3004000e');
+                const doseGridScaling = (() => { const v = parseFloat(dGS_raw); return isNaN(v) ? 1.0 : v; })();
+
+                // Prefer Float Pixel Data (7FE0,0008) when present; otherwise use Pixel Data (7FE0,0010)
+                const fpe = dataSet.elements.x7fe0008;
                 const pDE = dataSet.elements.x7fe00010;
-                if (!pDE) throw new Error("Pixel Data (x7fe00010) not found in RTDOSE file.");
-                const bA = dataSet.uint16('x00280100');
-                let pixelData;
-                if (bA === 16) pixelData = new Uint16Array(dataSet.byteArray.buffer, pDE.dataOffset, pDE.length / 2);
-                else if (bA === 32) pixelData = new Uint32Array(dataSet.byteArray.buffer, pDE.dataOffset, pDE.length / 4);
-                else throw new Error(`Unsupported Bits Allocated (${bA}).`);
+                if (!fpe && !pDE) throw new Error("Dose pixel data not found (neither Float Pixel Data (x7fe0008) nor Pixel Data (x7fe00010)).");
+
+                let pixelArray = null; // Typed array of pixel values
+                let usingFloatPixels = false;
+
+                if (fpe) {
+                    // Copy to an aligned buffer before creating Float32Array
+                    const u8 = new Uint8Array(dataSet.byteArray.buffer, fpe.dataOffset, fpe.length);
+                    const aligned = u8.slice();
+                    pixelArray = new Float32Array(aligned.buffer);
+                    usingFloatPixels = true;
+                } else {
+                    const bitsAllocated = dataSet.uint16('x00280100');
+                    const pixelRep = dataSet.uint16('x00280103') || 0; // 0=unsigned, 1=signed
+                    const u8 = new Uint8Array(dataSet.byteArray.buffer, pDE.dataOffset, pDE.length);
+                    const aligned = u8.slice();
+                    if (bitsAllocated === 16) {
+                        pixelArray = (pixelRep === 1) ? new Int16Array(aligned.buffer) : new Uint16Array(aligned.buffer);
+                    } else if (bitsAllocated === 32) {
+                        // Align to 4 bytes via copy; choose signedness based on Pixel Representation
+                        pixelArray = (pixelRep === 1) ? new Int32Array(aligned.buffer) : new Uint32Array(aligned.buffer);
+                    } else {
+                        throw new Error(`Unsupported Bits Allocated (${bitsAllocated}).`);
+                    }
+                }
+
                 const rows = dataSet.uint16('x00280010'), cols = dataSet.uint16('x00280011');
                 const imagePosition = dataSet.string('x00200032').split('\\').map(parseFloat);
                 const pixelSpacing = dataSet.string('x00280030').split('\\').map(parseFloat);
                 const gFOV_raw = (dataSet.string('x3004000c') || '').split('\\').map(parseFloat);
                 if (gFOV_raw.length === 0 || isNaN(gFOV_raw[0])) throw new Error("Grid Frame Offset Vector (x3004000c) not found or invalid.");
                 const frames = gFOV_raw.length;
+
+                const scale = usingFloatPixels ? 1.0 : doseGridScaling;
                 const originalDoseFrames = Array.from({ length: frames }, (_, i) => {
                     const frameOffset = i * rows * cols;
                     const frameData = new Float32Array(rows * cols);
-                    for (let j = 0; j < frameData.length; j++) frameData[j] = pixelData[frameOffset + j] * dGS;
+                    for (let j = 0; j < frameData.length; j++) {
+                        frameData[j] = (pixelArray[frameOffset + j] || 0) * scale;
+                    }
                     return frameData;
                 });
+
                 const zMap = gFOV_raw.map((z, index) => ({ z, index }));
                 zMap.sort((a, b) => a.z - b.z);
                 const gridFrameOffsetVector = zMap.map(item => item.z);
